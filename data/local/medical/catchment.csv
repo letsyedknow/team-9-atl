@@ -1,0 +1,14 @@
+shelter_name,county_name,seats,generator,wheelchair,counties,pd,o2,beds,pd_per_seat,need_per_seat,exposed_county_homes
+Gordon College Nursing & Allied Health Building,Lamar,57.0,unrecorded,yes,19,10478.0,3335.0,4432.0,183.8,261.6,
+Ridge Road Elementary School,Washington,20.0,unrecorded,unrecorded,8,1533.0,561.0,1428.0,76.7,148.1,
+Sumter County Fairgrounds,Sumter,200.0,unrecorded,unrecorded,37,10597.0,3819.0,5821.0,53.0,82.1,16
+Dudley Baptist Church,Laurens,150.0,unrecorded,unrecorded,13,4392.0,1743.0,2380.0,29.3,45.1,1
+Southern Polytechnic State University,Cobb,1398.0,unrecorded,unrecorded,33,46443.0,11757.0,15828.0,33.2,44.5,
+Cornerstone Baptist Church,Hart,200.0,no,yes,14,6141.0,2023.0,2331.0,30.7,42.4,
+Langston Chapel Elementary School,Bulloch,375.0,yes,yes,11,6143.0,1208.0,2885.0,16.4,24.1,29
+Evans Middle School,Columbia,504.0,unrecorded,unrecorded,8,3519.0,1007.0,1882.0,7.0,10.7,
+Cedar St Baptist Church,Candler,53.0,no,unrecorded,1,109.0,11.0,298.0,2.1,7.7,
+Metter Pre K-8 School,Candler,505.0,no,yes,8,2119.0,813.0,1208.0,4.2,6.6,9
+Metter High School,Candler,450.0,yes,yes,5,862.0,279.0,831.0,1.9,3.8,
+Guido Evangelistic Association,Candler,200.0,no,yes,1,110.0,18.0,100.0,0.6,1.1,
+Langston Chapel Middle School,Bulloch,362.0,yes,yes,1,121.0,31.0,70.0,0.3,0.5,1
