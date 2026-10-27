@@ -308,10 +308,13 @@ def season_county_risk(county_fips: str | None = None, limit: int = 10) -> dict[
 
     table = f"`{_project_id()}.{_dataset_name()}.scenario_season_county`"
     if county_fips:
-        sql = f"SELECT * FROM {table} WHERE county_fips = @fips"
+        sql = f"SELECT * FROM {table} WHERE county_fips = @fips AND outlook = 'long_run'"
         params = [bigquery.ScalarQueryParameter("fips", "STRING", county_fips)]
     else:
-        sql = f"SELECT * FROM {table} ORDER BY uncovered_1in10 DESC LIMIT @limit"
+        sql = (
+            f"SELECT * FROM {table} WHERE outlook = 'long_run' "
+            "ORDER BY uncovered_1in10 DESC LIMIT @limit"
+        )
         params = [bigquery.ScalarQueryParameter("limit", "INT64", limit)]
     return _season_query(sql, params, "counties", SOURCES["season"])
 
