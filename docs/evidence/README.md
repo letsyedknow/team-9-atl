@@ -17,7 +17,7 @@ Scripts in this folder:
 2. **The state's own plan says the coast cannot shelter its own residents.** Georgia's State Shelter Plan says "Coastal Georgia Counties may not be able to safely open emergency shelters". Each coastal county relies on county-to-county agreements to shelter residents who lack transport. Chatham County opens no local shelters before landfall. Inland counties' shelter lists are therefore the coastal plan. ([GEMA State Shelter Plan, p.47-48](https://gema.georgia.gov/document/document/state-shelter-plan/download); [CEMA](https://www.chathamemergency.org/PrepareNow/PreparednessArticle?articleId=Sheltering))
 3. **Two school rows are 43.5% of Georgia's reported shelter capacity.** Commerce High School (270,135) and Commerce Primary School (225,112) together hold 495,247 of 1,138,056 reported evacuation spaces. Commerce had 7,387 residents in 2020. ([capacity_checks.py](capacity_checks.py); [Georgia legislature census table](https://www.legis.ga.gov/api/document/docs/default-source/reapportionment-document-library/2020-census-count-by-city-name.pdf?sfvrsn=5519a15_2))
 4. **Medical-needs people are routed away from general shelters, to a plan that isn't public.** The State Shelter Plan says "Individuals who are identified as having medical needs will not be in general population shelters". The Department of Public Health (DPH) runs Medical Support Shelters under a plan "published under a separate cover", which we could not find online. ([State Shelter Plan, Annex A](https://gema.georgia.gov/document/document/state-shelter-plan/download))
-5. **Georgia has a facility-level assisted-living roster that the federal data lacks.** Georgia's Department of Community Health (DCH) runs a geocoded public feed, GaMap2Care. It lists 326 assisted living communities (27,226 licensed beds) and 1,568 personal care homes (19,341 beds). The six coastal counties hold 20 assisted living communities (1,302 beds) and 49 personal care homes (461 beds). ([dch_roster_counts.py](dch_roster_counts.py); [GaMap2Care](https://forms.dch.georgia.gov/HFRD/GaMap2Care.html))
+5. **Georgia's own licensing roster shows how many assisted-living residents the federal data misses.** Georgia's Department of Community Health (DCH) feed, GaMap2Care, lists 326 assisted living communities (27,226 licensed beds) and 1,568 personal care homes (19,341 beds). The six coastal counties hold 20 assisted living communities (1,302 beds) and 49 personal care homes (461 beds). Cite these aggregate counts only: the feed has no stated licence and carries personal contact data, so it cannot be loaded (section 6). ([dch_roster_counts.py](dch_roster_counts.py); [GaMap2Care](https://forms.dch.georgia.gov/HFRD/GaMap2Care.html))
 
 ## 1. Hurricane Isaias, October 2026: corrections to our notes
 
@@ -102,19 +102,21 @@ The record is thin. Nothing below documents a Georgia shelter failing outright.
 
 ## 6. Data sources we could add
 
-None of these states share-alike or non-commercial terms. Most state no license at all, so treat them as public-government data with attribution. The exceptions are the Esri Master License Agreement (HIFLD routes) and the DPH copyright (OASIS).
+The event rule (challenge README, "Bringing your own data") bars data with an **unstated licence** and any **individual-level personal data**; only public domain, CC0 and US Government works are safe. **None of the Georgia state and county sources below clears that bar, so none may be loaded into BigQuery, the repo or the agent.** They may be cited as sources for facts stated in this document.
 
-| Source | What it holds | Access | License / terms | Confidence |
+Sources that do clear the bar: the provided snapshot tables, CMS, HHS emPOWER, HRSA, NOAA/IBTrACS and OpenFEMA.
+
+| Source | What it holds | Access | License / terms | Usable as data |
 |---|---|---|---|---|
-| DCH GaMap2Care (licensed facilities) | Assisted living communities and personal care homes: ID, name, address, county, licensed beds, status, lat/lon | [JSON feed](https://forms.dch.georgia.gov/HFRD/GetFacilitiesData.svc/GetData?FACTYPE=Assisted%20Living%20Community&maxbeds=1000); [page](https://forms.dch.georgia.gov/HFRD/GaMap2Care.html) | None stated. Records include administrator names, phone numbers and emails; load facility fields only | high |
-| GEMA hurricane evacuation zones | 27 zone polygons, 11 counties | [FeatureServer/11](https://services1.arcgis.com/2iUE8l8JKrP2tygQ/arcgis/rest/services/Georgia_Hurricane_Evacuation_Zones/FeatureServer/11) | None stated (empty `licenseInfo`) | high |
-| GEMA contraflow intersections | 32 points on I-16 | [FeatureServer/0](https://services1.arcgis.com/2iUE8l8JKrP2tygQ/arcgis/rest/services/Contraflow_Intersections/FeatureServer/0) | None stated | high |
-| HIFLD hurricane evacuation routes (archived) | 31,593 segments, 832 in GA | [FeatureServer/0](https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/Hurricane_Evacuation_Routes_1/FeatureServer/0) | "Esri Master License Agreement"; access "U.S. Government"; archived, no longer updated | high |
-| Chatham SAGIS/CEMA: evacuation zones, routes, shelters, long-term care | 3 zones; 1,195 route segments; 180 long-term-care sites | [SAGIS CEMA services](https://pub.sagis.org/arcgis/rest/services/CEMA/) | No-warranty disclaimer (snippet only). The zone service is labelled "FOR TESTING PURPOSES ONY" | high (data) / unverified (terms) |
-| GDOT traffic counts (Traffic Analysis and Data Application, TADA) | Count stations, AADT, exports | [TADA](https://gdottrafficdata.drakewell.com/publicmultinodemap.asp); [GDOT road and traffic data](https://www.dot.ga.gov/GDOT/Pages/RoadTrafficData.aspx) | "provided 'as is'"; no license | high |
-| GDOT GIS servers (EOC support layers) | Unknown | [egis.dot.ga.gov](https://egis.dot.ga.gov/arcgis/rest/services/EOC_SUPPORT_LAYERS/MapServer) | n/a | unverified (timed out from this VM) |
-| DPH OASIS | Vital stats, hospital discharge, ER, BRFSS | [OASIS](https://oasis.state.ga.us/What-Can-Oasis-Do-For-You.aspx) | Copyright DPH; asks for a citation; no reuse license | high |
-| Georgia GIO data hub | 247 statewide feature services | [data-hub.gio.georgia.gov](https://data-hub.gio.georgia.gov/) | 98 of the first 100 services have no license | high |
+| DCH GaMap2Care (licensed facilities) | Assisted living communities and personal care homes: ID, name, address, county, licensed beds, status, lat/lon | [JSON feed](https://forms.dch.georgia.gov/HFRD/GetFacilitiesData.svc/GetData?FACTYPE=Assisted%20Living%20Community&maxbeds=1000); [page](https://forms.dch.georgia.gov/HFRD/GaMap2Care.html) | None stated. Records include administrator names, phone numbers and emails | **No** (no licence; personal data). Aggregate counts may be cited |
+| GEMA hurricane evacuation zones | 27 zone polygons, 11 counties | [FeatureServer/11](https://services1.arcgis.com/2iUE8l8JKrP2tygQ/arcgis/rest/services/Georgia_Hurricane_Evacuation_Zones/FeatureServer/11) | None stated (empty `licenseInfo`) | **No** (no licence) |
+| GEMA contraflow intersections | 32 points on I-16 | [FeatureServer/0](https://services1.arcgis.com/2iUE8l8JKrP2tygQ/arcgis/rest/services/Contraflow_Intersections/FeatureServer/0) | None stated | **No** (no licence) |
+| HIFLD hurricane evacuation routes (archived) | 31,593 segments, 832 in GA | [FeatureServer/0](https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/Hurricane_Evacuation_Routes_1/FeatureServer/0) | "Esri Master License Agreement"; access "U.S. Government"; archived, no longer updated | **No** (Esri MLA is not public domain or CC0) |
+| Chatham SAGIS/CEMA: evacuation zones, routes, shelters, long-term care | 3 zones; 1,195 route segments; 180 long-term-care sites | [SAGIS CEMA services](https://pub.sagis.org/arcgis/rest/services/CEMA/) | No-warranty disclaimer (snippet only); no licence. The zone service is labelled "FOR TESTING PURPOSES ONY" | **No** (no licence) |
+| GDOT traffic counts (Traffic Analysis and Data Application, TADA) | Count stations, AADT, exports | [TADA](https://gdottrafficdata.drakewell.com/publicmultinodemap.asp); [GDOT road and traffic data](https://www.dot.ga.gov/GDOT/Pages/RoadTrafficData.aspx) | "provided 'as is'"; no license | **No** (no licence) |
+| GDOT GIS servers (EOC support layers) | Unknown | [egis.dot.ga.gov](https://egis.dot.ga.gov/arcgis/rest/services/EOC_SUPPORT_LAYERS/MapServer) | Unknown (timed out from this VM) | **No** (no licence found) |
+| DPH OASIS | Vital stats, hospital discharge, ER, BRFSS | [OASIS](https://oasis.state.ga.us/What-Can-Oasis-Do-For-You.aspx) | Copyright DPH; asks for a citation; no reuse license | **No** (no licence) |
+| Georgia GIO data hub | 247 statewide feature services | [data-hub.gio.georgia.gov](https://data-hub.gio.georgia.gov/) | 98 of the first 100 services have no license | **No** (no licence) |
 
 **DCH roster counts** (output of `dch_roster_counts.py`, run 2026-10-27):
 
@@ -123,7 +125,7 @@ None of these states share-alike or non-commercial terms. Most state no license 
 | Assisted living community | 326 | 27,226 | 5 | 20 | 1,302 |
 | Personal care home | 1,568 | 19,341 | 65 | 49 | 461 |
 
-All rows in the feed are status Active. DCH's program page says it oversees "a total of 2,910 facilities ... approximately 55,000 residents" ([DCH](https://dch.georgia.gov/divisionsoffices/hfrd/facilities-provider-information/personal-care-homes)). That figure is larger than the feed and the scope difference is unexplained, so quote the feed counts as "listed in GaMap2Care".
+All rows in the feed are status Active. DCH's program page says it oversees "a total of 2,910 facilities ... approximately 55,000 residents" ([DCH](https://dch.georgia.gov/divisionsoffices/hfrd/facilities-provider-information/personal-care-homes)). That figure is larger than the feed and the scope difference is unexplained, so quote the feed counts as "listed in GaMap2Care". The script reads the feed at run time and prints only these aggregates; no facility records are stored.
 
 ## 7. Commerce, GA capacity rows
 
