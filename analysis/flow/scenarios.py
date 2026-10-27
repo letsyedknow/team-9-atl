@@ -168,6 +168,13 @@ for gdot_id, name in ((GDOT_I75, "I-75 south (FL line to Macon)"), (GDOT_I16, "I
     print(f"{name}: GDOT vertices within max {km[0]:.1f} km, median {km[1]:.1f} km of the approximation")
 
 
+def total(df, *cols) -> float:
+    values = df[cols[0]].fillna(0).to_numpy(dtype=float)
+    for c in cols[1:]:
+        values = values * df[c].to_numpy(dtype=float)
+    return float(values.sum())
+
+
 def origin_rows(state, counties):
     fips = ", ".join(f"'{c}'" for c in counties)
     return con.execute(f"""
@@ -198,13 +205,13 @@ for key, sc in SCENARIOS.items():
         for _, r in df.iterrows():
             origins_out.append({"scenario": key, "state": st, **r.to_dict()})
 
-    if sc["entry"] == "origin":
-        all_o = [df for df in origin_frames.values()]
-        tot = sum(float(d["pop"].sum()) for d in all_o)
-        ex = sum(float((d["pop"] * d["lon"]).sum()) for d in all_o) / tot
-        ey = sum(float((d["pop"] * d["lat"]).sum()) for d in all_o) / tot
+    entry = sc["entry"]
+    if isinstance(entry, tuple):
+        ex, ey = entry
     else:
-        ex, ey = sc["entry"]
+        tot = sum(total(d, "pop") for d in origin_frames.values())
+        ex = sum(total(d, "pop", "lon") for d in origin_frames.values()) / tot
+        ey = sum(total(d, "pop", "lat") for d in origin_frames.values()) / tot
     excl = ", ".join(f"'{c}'" for c in sc["exclude_hosts"]) or "''"
     hosts = con.execute(f"""
         WITH r AS ({route_sql[sc['routes']]}),
@@ -219,24 +226,26 @@ for key, sc in SCENARIOS.items():
                SUM(clean_capacity) FILTER (WHERE wheelchair = 'yes') AS wheelchair_yes_seats,
                SUM(clean_capacity * ST_Distance(geom, ST_Transform(ST_Point({ex}, {ey}), {PROJ}))) / SUM(clean_capacity) / 1000 AS km_from_entry
         FROM s GROUP BY 1 ORDER BY km_from_entry, county_fips
-    """).df()
-    route_capacity = float(hosts.general_capacity.sum())
-    route_medical = float(hosts.medical_seats.fillna(0).sum())
-    route_wheelchair = float(hosts.wheelchair_yes_seats.fillna(0).sum())
+    """)
+    cols = [d[0] for d in hosts.description]
+    hosts = [dict(zip(cols, row)) for row in hosts.fetchall()]
+    route_capacity = float(sum(h["general_capacity"] for h in hosts))
+    route_medical = float(sum(h["medical_seats"] or 0 for h in hosts))
+    route_wheelchair = float(sum(h["wheelchair_yes_seats"] or 0 for h in hosts))
     medical_counties = "; ".join(
-        f"{h.county_name} {h.medical_seats:.0f}"
-        for h in hosts[hosts.medical_seats > 0].sort_values("medical_seats", ascending=False).itertuples())
+        f"{h['county_name']} {h['medical_seats']:.0f}"
+        for h in sorted((h for h in hosts if h["medical_seats"]), key=lambda h: -h["medical_seats"]))
 
     for lvl in LEVELS:
         ev, su, csu = EVACUATION_RATE[lvl], SHELTER_USE[lvl], CARLESS_SHELTER_USE[lvl]
         leave = into_ga = seekers = pd_into = old_into = carless_into = 0.0
         for st, df in origin_frames.items():
             share = sc["origins"][st]["to_ga"][lvl]
-            pop, carless = float(df["pop"].sum()), float(df.carless_people.sum())
+            pop, carless = total(df, "pop"), total(df, "carless_people")
             leave += pop * ev
             into_ga += pop * ev * share
-            old_into += float(df.pop_65_plus.sum()) * ev * share
-            pd_into += float(df.power_dependent_dme.sum()) * ev * share
+            old_into += total(df, "pop_65_plus") * ev * share
+            pd_into += total(df, "power_dependent_dme") * ev * share
             if st == "GA":
                 # Carless Georgians reach inland hosts only on public transport, and mostly need a shelter.
                 seekers += (pop - carless) * ev * share * su + carless * ev * share * csu
@@ -246,20 +255,21 @@ for key, sc in SCENARIOS.items():
                 seekers += (pop - carless) * ev * share * su
 
         remaining, first_full, filled, reached = seekers, None, 0, None
-        for i, h in hosts.iterrows():
-            take = min(remaining, h.general_capacity)
+        for i, h in enumerate(hosts):
+            cap, km = float(h["general_capacity"]), float(h["km_from_entry"])
+            take = min(remaining, cap)
             remaining -= take
-            full = h.general_capacity > 0 and take >= h.general_capacity
+            full = cap > 0 and take >= cap
             fills.append({
-                "scenario": key, "level": lvl, "fill_order": i + 1, "county_fips": h.county_fips,
-                "county_name": h.county_name, "km_from_entry": round(h.km_from_entry, 1),
-                "general_capacity": h.general_capacity, "seekers_placed": round(take), "is_full": full,
+                "scenario": key, "level": lvl, "fill_order": i + 1, "county_fips": h["county_fips"],
+                "county_name": h["county_name"], "km_from_entry": round(km, 1),
+                "general_capacity": cap, "seekers_placed": round(take), "is_full": full,
             })
             if full:
                 filled += 1
-                first_full = first_full or h.county_name
+                first_full = first_full or h["county_name"]
             if take > 0:
-                reached = round(h.km_from_entry, 1)
+                reached = round(km, 1)
         summary.append({
             "scenario": key, "label": sc["label"], "level": lvl,
             "evacuation_rate": ev, "shelter_use": su, "carless_shelter_use": csu,
