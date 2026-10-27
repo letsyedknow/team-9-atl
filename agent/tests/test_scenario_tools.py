@@ -84,3 +84,10 @@ def test_drawn_scenario_contract(monkeypatch):
     shelter_ids = {r["shelter_id"] for r in result["receiving"]["sites"] if "shelter_id" in r}
     assert set(result["receiving_top"]) <= shelter_ids
     assert result["statewide"]["counties_affected_in_most_draws"] == len(result["affected_county_fips"])
+
+
+def test_zero_length_track_returns_status_with_source():
+    track = {"type": "LineString", "coordinates": [[-83.0, 32.0], [-83.0, 32.0]]}
+    result = run_scenario(tool_context=ctx({"scenario": {"track": track, "category": 3}}))
+    assert result["status"] == "needs_track_or_position"
+    assert result["source"]

@@ -126,9 +126,17 @@ def run_scenario(
         county_fips = ctx.get("county_fips") if isinstance(ctx.get("county_fips"), str) else None
     category = _category(category if category is not None else scenario_ctx.get("category"))
 
+    drawn = storms.drawn_track(lonlats, 3 if category is None else category) if len(lonlats) >= 2 else []
+    if len(drawn) < 2 and (lat is None or lon is None):
+        return _status(
+            "needs_track_or_position",
+            "The drawn track has no length. Draw a longer track, or give the storm's lat, lon, "
+            "heading and date.",
+        )
+
     match: dict[str, Any] | None = None
-    if len(lonlats) >= 2:
-        tracks = [storms.drawn_track(lonlats, 3 if category is None else category)]
+    if len(drawn) >= 2:
+        tracks = [drawn]
         source, used = "drawn_track", []
         likelihood = storms.pattern_frequency(
             track=tracks[0], min_intensity_kt=CATEGORY_FLOOR_KT[category or 0]
