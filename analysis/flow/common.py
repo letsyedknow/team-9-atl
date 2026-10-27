@@ -139,8 +139,18 @@ def save_numbers(section: str, numbers: dict) -> None:
     OUT.mkdir(exist_ok=True)
     path = OUT / "numbers.json"
     data = json.loads(path.read_text()) if path.exists() else {}
-    data[section] = numbers
+    data[section] = _rounded(numbers)
     path.write_text(json.dumps(data, indent=2, sort_keys=True, default=float) + "\n")
+
+
+def _rounded(value):
+    if isinstance(value, dict):
+        return {k: _rounded(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_rounded(v) for v in value]
+    if isinstance(value, float):
+        return round(value, 4)
+    return value
 
 
 def one(con, sql: str):

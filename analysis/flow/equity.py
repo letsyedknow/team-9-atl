@@ -11,8 +11,8 @@ con.execute(f"CREATE TABLE coastal AS SELECT * FROM read_csv('{OUT / 'coastal_tr
 lists = {
     "state": "SELECT geo_id FROM ga_tracts",
     "coastal_flood_tracts": "SELECT geo_id FROM coastal",
-    "top20_carless_on_flood_layer": "SELECT geo_id FROM coastal ORDER BY carless_hh_on_flood_layer DESC LIMIT 20",
-    "top20_carless_raw_count": "SELECT geo_id FROM coastal ORDER BY households_no_vehicle DESC LIMIT 20",
+    "top20_carless_on_flood_layer": "SELECT geo_id FROM coastal ORDER BY carless_hh_on_flood_layer DESC, geo_id LIMIT 20",
+    "top20_carless_raw_count": "SELECT geo_id FROM coastal ORDER BY households_no_vehicle DESC, geo_id LIMIT 20",
 }
 
 parts = []

@@ -9,7 +9,7 @@ assert unmatched == 0, f"{unmatched} shelters have a county_fips with no tracts"
 
 flags = con.execute("""
     SELECT capacity_flag, COUNT(*) AS shelters, SUM(evacuation_capacity) AS reported_capacity
-    FROM ga_shelters GROUP BY 1 ORDER BY 2 DESC
+    FROM ga_shelters GROUP BY 1 ORDER BY 2 DESC, 1
 """).fetchall()
 print("capacity_flag, shelters, reported_capacity")
 for row in flags:
@@ -23,11 +23,11 @@ write_csv(con, """
            capacity_flag, is_duplicate
     FROM ga_shelters
     WHERE evacuation_capacity >= 4000
-    ORDER BY evacuation_capacity DESC
+    ORDER BY evacuation_capacity DESC, shelter_id
 """, "capacity_large_rows.csv")
 for row in con.execute("""
     SELECT shelter_name, county_name, evacuation_capacity, county_pop, capacity_flag
-    FROM ga_shelters WHERE evacuation_capacity >= 9000 ORDER BY 3 DESC
+    FROM ga_shelters WHERE evacuation_capacity >= 9000 ORDER BY 3 DESC, 1
 """).fetchall():
     print(row)
 
@@ -58,7 +58,7 @@ print(f"clean seats per 1,000 Georgians {1000 * clean / ga_pop:.1f}")
 county_sql = """
     WITH c AS (
         SELECT county_fips,
-               ANY_VALUE(county_name) AS county_name,
+               MIN(county_name) AS county_name,
                COUNT(*) FILTER (WHERE is_evac AND NOT is_duplicate) AS evac_shelters,
                COUNT(*) FILTER (WHERE is_evac AND NOT is_duplicate AND clean_capacity IS NULL) AS evac_shelters_unrecorded_or_suspect,
                SUM(evacuation_capacity) FILTER (WHERE is_evac) AS reported_capacity,
@@ -74,7 +74,7 @@ county_sql = """
            round(1000 * c.clean_capacity / p.county_pop, 1) AS clean_per_1000,
            round(c.suspect_capacity / c.reported_capacity, 3) AS suspect_share_of_reported
     FROM ga_county_pop p LEFT JOIN c USING (county_fips)
-    ORDER BY reported_per_1000 DESC NULLS LAST
+    ORDER BY reported_per_1000 DESC NULLS LAST, county_fips
 """
 write_csv(con, county_sql, "capacity_by_county.csv")
 n_counties = one(con, f"SELECT COUNT(*) FROM ({county_sql})")

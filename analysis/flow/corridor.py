@@ -63,13 +63,13 @@ print(corr.to_string())
 counties_sql = """
     SELECT t.corridor, t.county_fips, s.county_name, COUNT(*) AS tracts_in_buffer
     FROM corridor_tracts t
-    LEFT JOIN (SELECT county_fips, ANY_VALUE(county_name) AS county_name FROM ga_shelters GROUP BY 1) s
+    LEFT JOIN (SELECT county_fips, MIN(county_name) AS county_name FROM ga_shelters GROUP BY 1) s
       USING (county_fips)
-    GROUP BY ALL ORDER BY 1, 4 DESC
+    GROUP BY ALL ORDER BY 1, 4 DESC, 2
 """
 write_csv(con, counties_sql, "corridor_counties.csv")
 for name, names in con.execute(f"""
-    SELECT corridor, string_agg(county_name, ', ' ORDER BY tracts_in_buffer DESC)
+    SELECT corridor, string_agg(county_name, ', ' ORDER BY tracts_in_buffer DESC, county_fips)
     FROM ({counties_sql}) GROUP BY 1 ORDER BY 1
 """).fetchall():
     print(name, ":", names)

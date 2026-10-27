@@ -5,5 +5,5 @@ shelter_id,shelter_name,city,county_fips,county_name,usage,evacuation_capacity,p
 358160,Central Park Recreation Center Blue Gym,CUMMING,13117,Forsyth,EVAC,9030.0,0.0,236605.0,0.038,ok,false
 364883,Infinite Energy Center,DULUTH,13135,Gwinnett,BOTH,4350.0,2175.0,926414.0,0.005,ok,false
 364863,Infinite Energy Center,DACULA,13135,Gwinnett,BOTH,4250.0,2125.0,926414.0,0.005,ok,true
-140965,Echols County High School,Statenville,13101,Echols,EVAC,4000.0,12000.0,3944.0,1.014,suspect: exceeds county share,false
 139933,Macon Coliseum,MACON,13021,Bibb,BOTH,4000.0,2000.0,153026.0,0.026,ok,false
+140965,Echols County High School,Statenville,13101,Echols,EVAC,4000.0,12000.0,3944.0,1.014,suspect: exceeds county share,false

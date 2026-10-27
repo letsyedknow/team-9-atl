@@ -12,7 +12,7 @@ con.execute("""
 """)
 med_rows = con.execute("""
     SELECT shelter_name, county_fips, usage, evacuation_capacity, capacity_flag, generator, in_surge_slosh_area
-    FROM med ORDER BY county_fips
+    FROM med ORDER BY county_fips, shelter_name
 """).fetchall()
 print("medical-needs shelters:")
 for r in med_rows:
@@ -49,7 +49,7 @@ county_sql = f"""
            round(pd.power_dependent_dme / seats.medical_seats_clean, 2) AS power_dependent_per_medical_seat,
            round(dist.pop_weighted_km_medical, 1) AS pop_weighted_km_medical
     FROM pd LEFT JOIN seats USING (county_fips) LEFT JOIN dist USING (county_fips)
-    ORDER BY pd.power_dependent_dme DESC
+    ORDER BY pd.power_dependent_dme DESC, pd.county_fips
 """
 assert one(con, f"SELECT COUNT(*) FROM ({county_sql})") == 159
 write_csv(con, county_sql, "medical_by_county.csv")
@@ -78,7 +78,7 @@ con.execute("""
     SELECT f.ccn, f.provider_name, f.citytown, f.beds, t.geo_id, t.county_fips,
            ST_Distance(f.geom, t.geom) / 1000 AS km_to_tract_centroid
     FROM fac f CROSS JOIN ga_tracts t
-    QUALIFY ROW_NUMBER() OVER (PARTITION BY f.ccn ORDER BY ST_Distance(f.geom, t.geom)) = 1
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY f.ccn ORDER BY ST_Distance(f.geom, t.geom), t.geo_id) = 1
 """)
 con.execute("""
     CREATE TABLE fac_med AS
@@ -94,7 +94,7 @@ fac_sql = f"""
     FROM fac_tract ft JOIN fac_med fm USING (ccn) LEFT JOIN ga_hazard h USING (geo_id)
 """
 assert one(con, f"SELECT COUNT(*) FROM ({fac_sql})") == n_fac_geo
-write_csv(con, f"{fac_sql} WHERE coastal_flood_tract OR high_hurricane_tract ORDER BY km_nearest_medical_shelter DESC",
+write_csv(con, f"{fac_sql} WHERE coastal_flood_tract OR high_hurricane_tract ORDER BY km_nearest_medical_shelter DESC, ccn",
           "care_facilities_exposed.csv")
 fac_agg = con.execute(f"""
     SELECT COUNT(*) FILTER (WHERE coastal_flood_tract), SUM(beds) FILTER (WHERE coastal_flood_tract),

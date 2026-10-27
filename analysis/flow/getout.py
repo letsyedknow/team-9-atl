@@ -39,8 +39,8 @@ tract_sql = """
            round(d.km_wheelchair_yes_not_in_surge, 2) AS km_nearest_wheelchair_yes_not_in_surge
     FROM coastal c JOIN coastal_dist d USING (geo_id)
 """
-write_csv(con, f"{tract_sql} ORDER BY carless_hh_on_flood_layer DESC", "coastal_tracts.csv")
-write_csv(con, f"{tract_sql} ORDER BY carless_hh_on_flood_layer DESC LIMIT 20", "top20_coastal_carless.csv")
+write_csv(con, f"{tract_sql} ORDER BY carless_hh_on_flood_layer DESC, geo_id", "coastal_tracts.csv")
+write_csv(con, f"{tract_sql} ORDER BY carless_hh_on_flood_layer DESC, geo_id LIMIT 20", "top20_coastal_carless.csv")
 
 agg = con.execute(f"""
     SELECT SUM(households_no_vehicle), SUM(car_households),
@@ -56,7 +56,7 @@ agg = con.execute(f"""
 """).fetchall()[0]
 low_ratio = con.execute(f"""
     SELECT geo_id, households_no_vehicle, car_households, car_hh_per_carless_hh, km_nearest_wheelchair_yes
-    FROM ({tract_sql}) WHERE car_hh_per_carless_hh < 2 ORDER BY car_hh_per_carless_hh
+    FROM ({tract_sql}) WHERE car_hh_per_carless_hh < 2 ORDER BY car_hh_per_carless_hh, geo_id
 """).fetchall()
 by_county = f"""
     SELECT county_fips, COUNT(*) AS coastal_tracts, SUM(total_pop) AS pop,
@@ -64,7 +64,7 @@ by_county = f"""
            round(SUM(car_households) / SUM(households_no_vehicle), 1) AS car_hh_per_carless_hh,
            round(SUM(carless_hh_on_flood_layer)) AS carless_hh_on_flood_layer,
            round(median(km_nearest_wheelchair_yes), 1) AS median_km_wheelchair_yes
-    FROM ({tract_sql}) GROUP BY 1 ORDER BY carless_hh_on_flood_layer DESC
+    FROM ({tract_sql}) GROUP BY 1 ORDER BY carless_hh_on_flood_layer DESC, county_fips
 """
 write_csv(con, by_county, "coastal_by_county.csv")
 print(con.execute(by_county).df().to_string())
