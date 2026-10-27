@@ -2,7 +2,8 @@
 
 The ADK agent in `agent/` runs on Cloud Run as `evac-readiness-agent` (project `qwiklabs-gcp-04-edc952746633`, region `us-east1`).
 
-- Live URL: https://evac-readiness-agent-hcodkdjhka-ue.a.run.app (the shelter map at `/`; ADK REST at `/apps`, `/run` and `/run_sse`, app `readiness_agent`)
+- Live URL: https://evac-readiness-agent-hcodkdjhka-ue.a.run.app, behind Identity-Aware Proxy: sign in with a Google account listed in `deploy/iap_members.txt`. To add someone, add a line and rerun `deploy/setup_gcp.sh`.
+- It serves the shelter map at `/` and the ADK REST API at `/apps`, `/run` and `/run_sse` (app `readiness_agent`). IAP is a service setting that deploys keep; `setup_gcp.sh` turns it on.
 - Every push to `main` that touches `agent/`, `frontend/`, `deploy/`, `Dockerfile` or the workflow redeploys through `.github/workflows/deploy-agent.yml`. It can also be run by hand from the Actions tab.
 
 ## How it fits together
@@ -11,7 +12,7 @@ The ADK agent in `agent/` runs on Cloud Run as `evac-readiness-agent` (project `
 |---|---|
 | `Dockerfile` | Builds `frontend/` with Node, then a Python 3.12 image runs `agent/server.py` (uvicorn), which serves the ADK API and the built frontend |
 | `deploy/config.sh` | Project, region, service and account names, shared by both scripts |
-| `deploy/setup_gcp.sh` | One-time, idempotent: Artifact Registry repo `team9`, runtime account `evac-agent-run` (BigQuery read, Vertex AI), deployer account `github-deployer`, Workload Identity Federation for GitHub Actions on `main`, public access on the service |
+| `deploy/setup_gcp.sh` | One-time, idempotent: Artifact Registry repo `team9`, runtime account `evac-agent-run` (BigQuery read, Vertex AI, MCP, Routes key), deployer account `github-deployer`, Workload Identity Federation for GitHub Actions on `main`, IAP with the allow-list in `deploy/iap_members.txt` |
 | `deploy/deploy.sh [tag]` | Build for linux/amd64, push to Artifact Registry, deploy to Cloud Run |
 
 GitHub Actions authenticates with Workload Identity Federation; there is no service-account key. Only pushes to `main` of `zm2231/team-9-atl` can assume the deployer. Repository variables `GCP_WIF_PROVIDER` and `GCP_DEPLOY_SA` hold the two identifiers that `setup_gcp.sh` prints.
