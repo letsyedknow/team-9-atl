@@ -1,8 +1,32 @@
 # Evacuation readiness agent
 
-`agent.py` defines `root_agent`: Gemini 3 with Google Maps grounding, the purpose-built BigQuery tools in `evacuation_tools.py`, and the Google-managed BigQuery MCP server, all reading dataset `evac_prod`. It runs on Cloud Run; see `deploy/README.md` for the live URL, local runs and deployment.
+This folder is the ADK service behind the Georgia shelter map in [`../frontend`](../frontend). `server.py`
+serves the ADK API and the built frontend from one origin. The app is `readiness_agent`:
 
-The MCP connection is restricted to the read-only `execute_sql_readonly` tool and uses Application Default Credentials (ADC), refreshed as needed. The runtime identity needs `roles/mcp.toolUser`, `roles/bigquery.jobUser` and `roles/bigquery.dataViewer`; `deploy/setup_gcp.sh` grants them to the Cloud Run service account. Local development uses ADC from `gcloud auth application-default login`. No service-account key or static token is needed.
+- `agent.py`: Gemini 3 with Grounding with Google Maps, the purpose-built BigQuery tools in
+  `evacuation_tools.py`, and the Google-managed BigQuery MCP server (read-only `execute_sql_readonly`).
+- `callbacks.py` / `map_data.py`: the frontend sends `LOAD_MAP_DATA v1` and a `before_agent_callback`
+  answers it from BigQuery with no model call. See
+  [`specs/001-georgia-shelter-map`](../specs/001-georgia-shelter-map/) for the contract.
+
+Everything reads dataset `evac_prod` (`EVAC_DATASET`). The runtime identity needs
+`roles/mcp.toolUser`, `roles/bigquery.jobUser`, `roles/bigquery.dataViewer` and `roles/aiplatform.user`;
+`deploy/setup_gcp.sh` grants them to the Cloud Run service account. Deployment: `deploy/README.md`.
+
+## Running it locally
+
+```bash
+# agent service (Python 3.12+), uses ADC from `gcloud auth application-default login`
+cd agent && python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+cp .env.example .env
+.venv/bin/uvicorn server:app --port 8000
+.venv/bin/python -m pytest            # no credentials needed
+
+# frontend, in another shell
+cd frontend && npm ci && npm run dev  # proxies /apps, /run, /run_sse to :8000
+VITE_MOCK_AGENT=1 npm run dev         # or: run against a mocked agent, no backend needed
+npm test && npx playwright test
+```
 
 ## Challenge brief
 

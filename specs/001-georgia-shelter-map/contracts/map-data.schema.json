@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "map-data/v1",
+  "title": "Georgia map data payload (session start)",
+  "type": "object",
+  "required": ["schema", "state", "generated_at", "shelters", "counties", "notes"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "map-data/v1" },
+    "state": { "const": "GA" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "shelters": { "type": "array", "items": { "$ref": "#/$defs/Shelter" } },
+    "counties": { "type": "array", "items": { "$ref": "#/$defs/County" } },
+    "notes": {
+      "description": "Statewide 'what we could not tell you' items, counted.",
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "Flag": { "enum": ["YES", "NO", "UNRECORDED"] },
+    "FlagCounts": {
+      "type": "object",
+      "required": ["yes", "no", "unrecorded"],
+      "additionalProperties": false,
+      "properties": {
+        "yes": { "type": "integer", "minimum": 0 },
+        "no": { "type": "integer", "minimum": 0 },
+        "unrecorded": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "SourcedValue": {
+      "type": "object",
+      "required": ["value", "source", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "value": { "type": ["number", "null"] },
+        "source": { "type": "string" },
+        "kind": { "enum": ["registry", "survey", "live", "simulation"] },
+        "coverage": { "type": "string" }
+      }
+    },
+    "Shelter": {
+      "type": "object",
+      "required": ["shelter_id", "name", "county_fips", "county_name", "lat", "lon",
+                   "evacuation_capacity", "usage", "wheelchair_accessible", "generator_onsite",
+                   "is_medical", "in_surge_slosh_area", "quality_flags"],
+      "additionalProperties": false,
+      "properties": {
+        "shelter_id": { "type": "string" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "county_fips": { "type": ["string", "null"], "pattern": "^\\d{5}$" },
+        "county_name": { "type": "string" },
+        "lat": { "type": "number" },
+        "lon": { "type": "number" },
+        "evacuation_capacity": { "type": ["number", "null"] },
+        "post_impact_capacity": { "type": ["number", "null"] },
+        "usage": { "type": ["string", "null"] },
+        "wheelchair_accessible": { "$ref": "#/$defs/Flag" },
+        "generator_onsite": { "$ref": "#/$defs/Flag" },
+        "is_medical": { "$ref": "#/$defs/Flag" },
+        "in_surge_slosh_area": { "$ref": "#/$defs/Flag" },
+        "quality_flags": {
+          "type": "array",
+          "items": { "enum": ["suspect_capacity", "location_disagrees"] },
+          "uniqueItems": true
+        }
+      }
+    },
+    "County": {
+      "type": "object",
+      "required": ["county_fips", "name", "shelter_count", "capacity_total",
+                   "capacity_total_incl_suspect", "capacity_excluded", "wheelchair", "generator", "medical",
+                   "in_surge", "households_no_vehicle", "share_65_plus", "share_disability"],
+      "additionalProperties": false,
+      "properties": {
+        "county_fips": { "type": "string", "pattern": "^13\\d{3}$" },
+        "name": { "type": "string" },
+        "shelter_count": { "type": "integer", "minimum": 0 },
+        "capacity_total": { "$ref": "#/$defs/SourcedValue" },
+        "capacity_total_incl_suspect": { "$ref": "#/$defs/SourcedValue" },
+        "capacity_excluded": {
+          "description": "Shelters left out of capacity_total (suspect capacity). Shown by count and name next to the total.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["shelter_id", "name"],
+            "additionalProperties": false,
+            "properties": {
+              "shelter_id": { "type": "string" },
+              "name": { "type": "string" }
+            }
+          }
+        },
+        "wheelchair": { "$ref": "#/$defs/FlagCounts" },
+        "generator": { "$ref": "#/$defs/FlagCounts" },
+        "medical": { "$ref": "#/$defs/FlagCounts" },
+        "in_surge": { "$ref": "#/$defs/FlagCounts" },
+        "households_no_vehicle": { "$ref": "#/$defs/SourcedValue" },
+        "share_65_plus": { "$ref": "#/$defs/SourcedValue" },
+        "share_disability": { "$ref": "#/$defs/SourcedValue" }
+      }
+    }
+  }
+}

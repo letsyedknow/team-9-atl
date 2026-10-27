@@ -1,4 +1,13 @@
 *
 !agent/
+!frontend/
 agent/.env
+agent/.venv
+agent/tests
 agent/**/__pycache__
+frontend/node_modules
+frontend/dist
+frontend/coverage
+frontend/test-results
+frontend/playwright-report
+frontend/tsconfig.tsbuildinfo

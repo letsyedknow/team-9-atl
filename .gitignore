@@ -24,3 +24,11 @@ Thumbs.db
 data/*.parquet
 data/*.csv
 data/*.csv.gz
+
+# Frontend build and tooling output
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/test-results/
+frontend/playwright-report/
+frontend/*.tsbuildinfo
