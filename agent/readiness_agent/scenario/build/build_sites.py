@@ -14,6 +14,8 @@ from rasterio.enums import Resampling
 from shapely.geometry import mapping, shape
 from shapely.ops import unary_union
 
+from .limits import job_config
+
 DATA = Path(__file__).resolve().parents[1] / "data"
 PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-04-edc952746633")
 DATASET = os.getenv("EVAC_DATASET", "evac_prod")
@@ -99,11 +101,11 @@ def build_sites(bq: bigquery.Client, rasters: dict[int, Path]) -> dict:
         generator_onsite
       FROM {table("shelters_clean")}
       WHERE is_medical AND latitude IS NOT NULL AND evacuation_capacity > 0
-      ORDER BY shelter_id""").to_dataframe()
+      ORDER BY shelter_id""", job_config=job_config()).to_dataframe()
     dialysis = bq.query(f"""
       SELECT ccn, facility_name, county_fips, latitude, longitude, stations, late_shift
       FROM {table("dialysis_centers_flow_staging")}
-      WHERE latitude IS NOT NULL AND stations > 0 ORDER BY ccn""").to_dataframe()
+      WHERE latitude IS NOT NULL AND stations > 0 ORDER BY ccn""", job_config=job_config()).to_dataframe()
     s_surge = surge_categories(
         rasters, shelters.latitude.to_numpy(float), shelters.longitude.to_numpy(float)
     )
@@ -144,13 +146,13 @@ def build_facility_beds(bq: bigquery.Client, county_zip: Path) -> dict:
     nursing = bq.query(f"""
       SELECT cms_certification_number_ccn AS ccn, latitude, longitude,
         number_of_certified_beds AS beds
-      FROM {table("care_facilities_clean")} WHERE latitude IS NOT NULL""").to_dataframe()
+      FROM {table("care_facilities_clean")} WHERE latitude IS NOT NULL""", job_config=job_config()).to_dataframe()
     assisted = bq.query(f"""
       SELECT county_fips, SUM(licensed_beds) AS beds, COUNT(*) AS homes
       FROM {table("ext_ga_assisted_living")}
       WHERE county_fips IS NOT NULL AND (operstdesc IS NULL OR UPPER(operstdesc) = 'ACTIVE')
         AND closeddate IS NULL
-      GROUP BY 1""").to_dataframe()
+      GROUP BY 1""", job_config=job_config()).to_dataframe()
     with zipfile.ZipFile(county_zip) as z:
         shp = next(n for n in z.namelist() if n.endswith(".shp"))
     counties = gpd.read_file(f"zip://{county_zip}!{shp}")

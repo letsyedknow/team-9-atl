@@ -11,6 +11,7 @@ import numpy as np
 
 from .. import data, engine, storms
 from ..windfield import TrackPoint
+from .limits import MAX_BYTES_BILLED
 
 DATA = Path(__file__).resolve().parents[1] / "data"
 PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-04-edc952746633")
@@ -369,13 +370,20 @@ def backtest(ctx: dict, base: dict, observed: dict[str, int]) -> dict:
 
 def observed_counts() -> dict[str, int]:
     sql = f"""
-      SELECT fips_code, COUNTIF(peak_share >= {OUTAGE_25}) AS n
+      SELECT fips_code, COUNTIF(peak_share >= @outage_share) AS n
       FROM `{PROJECT}.{DATASET}.county_storm_outages`
-      WHERE fips_code LIKE '13%' AND season BETWEEN {BACKTEST_YEARS[0]} AND {BACKTEST_YEARS[1]}
+      WHERE fips_code LIKE '13%' AND season BETWEEN @first_year AND @last_year
         AND IFNULL(peak_share_status, '') != 'suspect'
       GROUP BY 1"""
     out = subprocess.run(
-        ["bq", "query", "--nouse_legacy_sql", "--format=json", "--max_rows=1000", sql],
+        [
+            "bq", "query", "--nouse_legacy_sql", "--format=json", "--max_rows=1000",
+            f"--maximum_bytes_billed={MAX_BYTES_BILLED}",
+            f"--parameter=outage_share:FLOAT64:{OUTAGE_25}",
+            f"--parameter=first_year:INT64:{BACKTEST_YEARS[0]}",
+            f"--parameter=last_year:INT64:{BACKTEST_YEARS[1]}",
+            sql,
+        ],
         check=True,
         capture_output=True,
         text=True,

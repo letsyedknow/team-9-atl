@@ -286,25 +286,37 @@ def run_scenario(
     }
 
 
+def _season_query(sql: str, params: list[Any], key: str, source: str) -> dict[str, Any]:
+    from google.api_core.exceptions import GoogleAPIError
+    from google.auth.exceptions import GoogleAuthError
+
+    try:
+        rows = _run_query(sql, params)
+    except (GoogleAPIError, GoogleAuthError, RuntimeError) as exc:
+        return {
+            "status": "error",
+            "message": f"Could not read the season table: {type(exc).__name__}",
+            key: [],
+            "source": source,
+        }
+    return {key: rows, "source": source}
+
+
 def season_county_risk(county_fips: str | None = None, limit: int = 10) -> dict[str, Any]:
     """Season-long hurricane risk per Georgia county from about 2,000 simulated storms based on every storm since 1950 near Georgia: chance per year of losing power to at least 25% of customers, power-dependent residents affected in a typical and a 1-in-10 year, dialysis patients displaced, and people left without a powered seat. Without county_fips, returns the counties with the most people left uncovered."""
     from google.cloud import bigquery
 
     table = f"`{_project_id()}.{_dataset_name()}.scenario_season_county`"
     if county_fips:
-        rows = _run_query(
-            f"SELECT * FROM {table} WHERE county_fips = @fips",
-            [bigquery.ScalarQueryParameter("fips", "STRING", county_fips)],
-        )
+        sql = f"SELECT * FROM {table} WHERE county_fips = @fips"
+        params = [bigquery.ScalarQueryParameter("fips", "STRING", county_fips)]
     else:
-        rows = _run_query(
-            f"SELECT * FROM {table} ORDER BY uncovered_1in10 DESC LIMIT @limit",
-            [bigquery.ScalarQueryParameter("limit", "INT64", limit)],
-        )
-    return {"counties": rows, "source": SOURCES["season"]}
+        sql = f"SELECT * FROM {table} ORDER BY uncovered_1in10 DESC LIMIT @limit"
+        params = [bigquery.ScalarQueryParameter("limit", "INT64", limit)]
+    return _season_query(sql, params, "counties", SOURCES["season"])
 
 
 def gap_sensitivity() -> dict[str, Any]:
     """Unknowns in Georgia's records ranked by how much each changes the number of power-dependent and dialysis patients left without a powered seat or a chair in a 1-in-10 season, with the record to collect to resolve each one."""
     table = f"`{_project_id()}.{_dataset_name()}.scenario_fix_ranking`"
-    return {"gaps": _run_query(f"SELECT * FROM {table} ORDER BY swing DESC"), "source": SOURCES["gaps"]}
+    return _season_query(f"SELECT * FROM {table} ORDER BY swing DESC", [], "gaps", SOURCES["gaps"])

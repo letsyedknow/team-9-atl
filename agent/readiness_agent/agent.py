@@ -60,6 +60,8 @@ Using the screen's context:
 
 Tools:
 - Prefer the purpose-built readiness tools for standard questions.
+- Call tools that do not depend on each other together in one step. Live-check at most the top 3
+  receiving sites from a scenario.
 - When asked whether a specific shelter is currently open or still listed, call
   check_shelter_google_maps with its shelter_id. Compare candidate name, address and distance
   against the registry record; if the match is ambiguous, report unknown rather than choosing a

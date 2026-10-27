@@ -91,3 +91,19 @@ def test_zero_length_track_returns_status_with_source():
     result = run_scenario(tool_context=ctx({"scenario": {"track": track, "category": 3}}))
     assert result["status"] == "needs_track_or_position"
     assert result["source"]
+
+
+def test_season_tools_return_sourced_error_when_bigquery_fails(monkeypatch):
+    from google.api_core.exceptions import Forbidden
+
+    from readiness_agent import scenario_tools
+
+    def fail(*_a, **_k):
+        raise Forbidden("denied")
+
+    monkeypatch.setattr(scenario_tools, "_run_query", fail)
+    risk = scenario_tools.season_county_risk("13051")
+    gaps = scenario_tools.gap_sensitivity()
+    assert risk["status"] == gaps["status"] == "error"
+    assert risk["counties"] == [] and gaps["gaps"] == []
+    assert risk["source"] and gaps["source"]

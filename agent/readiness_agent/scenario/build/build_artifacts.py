@@ -12,6 +12,7 @@ from google.cloud import bigquery
 from .. import data, storms
 from ..model import FEATURES, expit, transform
 from ..windfield import NM_KM, TrackPoint, exposure, interpolate_hourly
+from .limits import job_config
 
 DATA = data.DATA_DIR
 PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-04-edc952746633")
@@ -32,8 +33,8 @@ def table(name: str) -> str:
     return f"`{PROJECT}.{DATASET}.{name}`"
 
 
-def query(bq: bigquery.Client, sql: str) -> list:
-    return list(bq.query(sql).result())
+def query(bq: bigquery.Client, sql: str, *params: bigquery.ScalarQueryParameter) -> list:
+    return list(bq.query(sql, job_config=job_config(*params)).result())
 
 
 def facility_beds() -> dict:
@@ -116,11 +117,13 @@ def build_tracks(bq: bigquery.Client, gazetteer: list[dict]) -> dict:
       SELECT SID, NAME, SEASON, ISO_TIME, USA_LAT, USA_LON, USA_WIND, USA_RMW,
         USA_R34_NE, USA_R34_SE, USA_R34_SW, USA_R34_NW, dist_ga_km
       FROM {table('storm_tracks_ibtracs')}
-      WHERE SEASON >= {CLIMATE_FROM} AND USA_WIND IS NOT NULL AND USA_LAT IS NOT NULL
+      WHERE SEASON >= @climate_from AND USA_WIND IS NOT NULL AND USA_LAT IS NOT NULL
         AND EXTRACT(HOUR FROM ISO_TIME) IN (0, 6, 12, 18) AND EXTRACT(MINUTE FROM ISO_TIME) = 0
         AND SID IN (SELECT SID FROM {table('storm_tracks_ibtracs')}
-                    GROUP BY SID HAVING MIN(dist_ga_km) < {TRACK_KM})
-      ORDER BY SID, ISO_TIME""")
+                    GROUP BY SID HAVING MIN(dist_ga_km) < @track_km)
+      ORDER BY SID, ISO_TIME""",
+      bigquery.ScalarQueryParameter("climate_from", "INT64", CLIMATE_FROM),
+      bigquery.ScalarQueryParameter("track_km", "FLOAT64", TRACK_KM))
     by_sid = defaultdict(list)
     for r in rows:
         by_sid[r.SID].append(r)
