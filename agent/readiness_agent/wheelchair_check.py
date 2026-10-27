@@ -14,7 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
-MAX_SHELTERS = 10
+MAX_SHELTERS = 3
 _WORKERS = 5
 
 PROMPT = """\

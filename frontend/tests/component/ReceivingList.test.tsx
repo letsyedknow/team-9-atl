@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { LineString } from "geojson";
 import mapData from "../mocks/mapData.fixture.json";
-import { ReceivingListView } from "../../src/components/scenario/ReceivingList";
+import { MAPS_CHECK_BATCH, ReceivingListView } from "../../src/components/scenario/ReceivingList";
 import { countyCentroids, gaCounties } from "../../src/lib/geo";
 import { HALF_WIDTH_KM, affected, computeBand, receivingList } from "../../src/lib/simulation";
 import type { HurricaneScenario, MapData } from "../../src/lib/types";
@@ -70,7 +70,7 @@ describe("ReceivingList: filled and live-checked data is called out", () => {
     view({ onCheckWheelchair: (x) => ids.push(x) });
     screen.getByTestId("maps-check-button").click();
     expect(ids).toHaveLength(1);
-    expect(ids[0].length).toBeLessThanOrEqual(10);
+    expect(ids[0].length).toBeLessThanOrEqual(MAPS_CHECK_BATCH);
     for (const id of ids[0]) expect(shelterById.get(id)!.wheelchair_accessible).toBe("UNRECORDED");
   });
 

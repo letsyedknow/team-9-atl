@@ -8,10 +8,10 @@ import { useScenario } from "../../state/scenario";
 import { MapsWheelchair, SurgeFlag } from "../FlagNotes";
 
 /** The server checks at most this many per request (wheelchair_check.MAX_SHELTERS). */
-export const MAPS_CHECK_BATCH = 10;
+export const MAPS_CHECK_BATCH = 3;
 
 /** Top-ranked not-recorded shelters are looked up on Google Maps automatically; the rest on request. */
-export const MAPS_AUTO_CHECK = 10;
+export const MAPS_AUTO_CHECK = 3;
 
 export function ReceivingListView({
   scenario,
