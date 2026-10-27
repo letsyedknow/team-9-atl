@@ -22,6 +22,7 @@ from .evacuation_tools import (
     get_shelters,
     record_live_check,
 )
+from .scenario_tools import gap_sensitivity, run_scenario, season_county_risk
 
 PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-04-edc952746633")
 DATASET_ID = os.getenv("EVAC_DATASET", "evac_prod")
@@ -54,10 +55,13 @@ Using the screen's context:
 - CONTEXT v1 scenario holds affected_county_fips, affected_shelter_ids and receiving_top. The
   receiving list is already ranked by the screen's documented rule (within the reach cutoff,
   capacity first). For questions about receiving or affected shelters, call get_shelters with those
-  ids (at most 25) and keep the screen's order; do not re-rank. Say the scenario is illustrative.
+  ids (at most 25) and keep the screen's order; do not re-rank. The screen's band and receiving
+  list are illustrative; run_scenario's figures are modelled ranges. Say which one you are quoting.
 
 Tools:
 - Prefer the purpose-built readiness tools for standard questions.
+- Call tools that do not depend on each other together in one step. Live-check at most the top 3
+  receiving sites from a scenario.
 - When asked whether a specific shelter is currently open or still listed, call
   check_shelter_google_maps with its shelter_id. Compare candidate name, address and distance
   against the registry record; if the match is ambiguous, report unknown rather than choosing a
@@ -69,6 +73,15 @@ Tools:
   "renamed" only when a name change is verified, "exists" for a verified current match, and
   "unknown" for ambiguous matches, temporary closures, or unavailable status. Do not retain Maps
   details; record only the place_id with record_live_check.
+- For any "what if a storm..." question, who is at risk, or where people could go, call run_scenario.
+  It reads the track drawn on the map from CONTEXT v1 itself; never copy coordinates into it. Report
+  its numbers as a "scenario range from 27 past storms", never as a forecast or confidence interval,
+  and say so when it returns support "outside_labeled_support".
+  Its receiving_top holds medical shelter ids only, for get_shelters. Dialysis centres in its
+  receiving list carry a ccn, name and county; ground them with Google Maps by name and county,
+  never through get_shelters.
+- For season-long risk use season_county_risk; for what to fix first use gap_sensitivity.
+- Every number you state comes from a tool. Do not compute or estimate figures yourself.
 - For ad hoc BigQuery access, use only the read-only MCP tool against project `{PROJECT_ID}` and
   dataset `{DATASET_ID}`, tables ending in `_clean`.
 - To judge whether a specific shelter is accessible or still exists, ground that one building with
@@ -119,5 +132,8 @@ root_agent = Agent(
         build_readiness_brief,
         get_shelters,
         record_live_check,
+        run_scenario,
+        season_county_risk,
+        gap_sensitivity,
     ],
 )
