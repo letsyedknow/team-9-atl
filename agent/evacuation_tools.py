@@ -1,7 +1,11 @@
 import os
 from typing import Any, Dict, List, Optional
 
+from dotenv import load_dotenv
 
+load_dotenv()
+
+DEFAULT_PROJECT_ID = "qwiklabs-gcp-04-edc952746633"
 DEFAULT_DATASET = "evacuation_readiness"
 
 
@@ -10,12 +14,11 @@ def _dataset_name() -> str:
 
 
 def _project_id() -> str:
-    project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
-    if not project_id:
-        raise ValueError(
-            "GOOGLE_CLOUD_PROJECT is not set. Export it before calling the tools."
-        )
-    return project_id
+    return os.getenv("GOOGLE_CLOUD_PROJECT", DEFAULT_PROJECT_ID)
+
+
+def _table_name(base_name: str) -> str:
+    return f"{base_name}_clean"
 
 
 def _bigquery_client():
@@ -47,14 +50,11 @@ def _run_query(sql: str, params: Optional[List[Any]] = None) -> List[Dict[str, A
 
 
 def find_vulnerable_tracts(
-    state: str,
+    state: Optional[str] = None,
     county: Optional[str] = None,
     limit: int = 10,
 ) -> List[Dict[str, Any]]:
     """Return the tracts with the highest vulnerability indicators for no-vehicle households and age/disability risk."""
-    if not state:
-        raise ValueError("state is required, for example 'FL' or 'SC'.")
-
     try:
         from google.cloud import bigquery
     except ImportError as exc:  # pragma: no cover
@@ -62,43 +62,57 @@ def find_vulnerable_tracts(
             "google-cloud-bigquery is required. Install dependencies from agent/requirements.txt."
         ) from exc
 
-    county_filter = "" if not county else "AND county_name = @county"
+    shelter_table = f"`{_project_id()}.{_dataset_name()}.{_table_name('shelters')}`"
+    tract_table = f"`{_project_id()}.{_dataset_name()}.{_table_name('vulnerability_tracts')}`"
+
+    filters = []
+    if state:
+        filters.append("state = @state")
+    if county:
+        filters.append("LOWER(county_name) = LOWER(@county)")
+    shelter_filter = " AND ".join(filters)
+    county_filter = ""
+    if shelter_filter:
+        county_filter = (
+            "WHERE county_fips IN ("
+            f"SELECT DISTINCT county_fips FROM {shelter_table} "
+            f"WHERE {shelter_filter}"
+            ")"
+        )
+
     sql = f"""
         SELECT
-          tract_id,
-          county_name,
+          geo_id AS tract_id,
+          county_fips,
+          (SELECT county_name FROM {shelter_table} WHERE county_fips = v.county_fips LIMIT 1)
+            AS county_name,
           households_no_vehicle,
           pct_no_vehicle,
           pct_age_65_plus,
           pct_disability,
           mobile_homes,
-          ST_GEOGPOINT(longitude, latitude) AS geo
-        FROM `{_project_id()}.{_dataset_name()}.vulnerability_tracts`
-        WHERE state = @state
-          {county_filter}
+          ST_GEOGPOINT(lon, lat) AS geo
+        FROM {tract_table} v
+        {county_filter}
         ORDER BY households_no_vehicle DESC, pct_no_vehicle DESC, pct_age_65_plus DESC
         LIMIT @limit
     """
 
-    params = [
-        bigquery.ScalarQueryParameter("state", "STRING", state.upper()),
-        bigquery.ScalarQueryParameter("limit", "INT64", limit),
-    ]
+    params = [bigquery.ScalarQueryParameter("limit", "INT64", limit)]
+    if state:
+        params.insert(0, bigquery.ScalarQueryParameter("state", "STRING", state.upper()))
     if county:
-        params.insert(1, bigquery.ScalarQueryParameter("county", "STRING", county))
+        params.insert(0, bigquery.ScalarQueryParameter("county", "STRING", county))
 
-    return _run_query(sql, params=[p for p in params])
+    return _run_query(sql, params=params)
 
 
 def assess_shelter_accessibility(
-    state: str,
+    state: Optional[str] = None,
     county: Optional[str] = None,
     limit: int = 10,
 ) -> List[Dict[str, Any]]:
     """Return shelters ranked by accessibility gap and readiness concern across a county or state."""
-    if not state:
-        raise ValueError("state is required, for example 'FL' or 'SC'.")
-
     try:
         from google.cloud import bigquery
     except ImportError as exc:  # pragma: no cover
@@ -106,11 +120,17 @@ def assess_shelter_accessibility(
             "google-cloud-bigquery is required. Install dependencies from agent/requirements.txt."
         ) from exc
 
-    county_filter = "" if not county else "AND county = @county"
+    filters = []
+    if state:
+        filters.append("state = @state")
+    if county:
+        filters.append("LOWER(county_name) = LOWER(@county)")
+    where_clause = "WHERE " + " AND ".join(filters) if filters else ""
+
     sql = f"""
         SELECT
           shelter_name,
-          county,
+          county_name AS county,
           evacuation_capacity,
           wheelchair_accessible,
           generator_onsite,
@@ -126,21 +146,66 @@ def assess_shelter_accessibility(
             ELSE 0
           END AS accessibility_gap,
           ST_GEOGPOINT(longitude, latitude) AS geo
-        FROM `{_project_id()}.{_dataset_name()}.shelters`
-        WHERE state = @state
-          {county_filter}
+        FROM `{_project_id()}.{_dataset_name()}.{_table_name('shelters')}`
+        {where_clause}
         ORDER BY accessibility_gap DESC, evacuation_capacity DESC, shelter_name ASC
         LIMIT @limit
     """
 
-    params = [
-        bigquery.ScalarQueryParameter("state", "STRING", state.upper()),
-        bigquery.ScalarQueryParameter("limit", "INT64", limit),
-    ]
+    params = [bigquery.ScalarQueryParameter("limit", "INT64", limit)]
+    if state:
+        params.insert(0, bigquery.ScalarQueryParameter("state", "STRING", state.upper()))
     if county:
-        params.insert(1, bigquery.ScalarQueryParameter("county", "STRING", county))
+        params.insert(0, bigquery.ScalarQueryParameter("county", "STRING", county))
 
-    return _run_query(sql, params=[p for p in params])
+    return _run_query(sql, params=params)
+
+
+def find_power_dependent_counties(
+    state: Optional[str] = None,
+    county: Optional[str] = None,
+    limit: int = 10,
+) -> List[Dict[str, Any]]:
+    """Return counties ranked by electricity-dependent medical-equipment demand."""
+    try:
+        from google.cloud import bigquery
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError(
+            "google-cloud-bigquery is required. Install dependencies from agent/requirements.txt."
+        ) from exc
+
+    filters = []
+    if state:
+        filters.append("state = @state")
+    if county:
+        filters.append("LOWER(county) = LOWER(@county)")
+    where_clause = "WHERE " + " AND ".join(filters) if filters else ""
+
+    sql = f"""
+        SELECT
+          county,
+          state,
+          power_dependent_dme,
+          power_dependent_devices_dme,
+          facility_esrd_dialysis_any_dme,
+          o2_services_any_dme,
+          home_health_services_any_dme,
+          athome_hospice_any_dme,
+          any_healthcare_srvc_any_dme,
+          fips_code
+        FROM `{_project_id()}.{_dataset_name()}.{_table_name('power_dependent_counties')}`
+        {where_clause}
+        ORDER BY power_dependent_dme DESC
+        LIMIT @limit
+    """
+
+    params = [bigquery.ScalarQueryParameter("limit", "INT64", limit)]
+    if state:
+        params.insert(0, bigquery.ScalarQueryParameter("state", "STRING", state.upper()))
+    if county:
+        params.insert(0, bigquery.ScalarQueryParameter("county", "STRING", county))
+
+    return _run_query(sql, params=params)
 
 
 def build_readiness_brief(
@@ -155,12 +220,14 @@ def build_readiness_brief(
 
     vulnerable = find_vulnerable_tracts(state=state, county=county, limit=tract_limit)
     shelters = assess_shelter_accessibility(state=state, county=county, limit=shelter_limit)
+    power = find_power_dependent_counties(state=state, county=county, limit=5)
 
     return {
         "state": state.upper(),
         "county": county,
         "vulnerable_tracts": vulnerable,
         "shelters_to_verify": shelters,
+        "medical_dependency": power,
         "recommendation": (
             "Prioritize shelters with missing accessibility data, high surge exposure, and low verified capacity; "
             "then route vulnerable tracts to the nearest workable shelter candidates."
