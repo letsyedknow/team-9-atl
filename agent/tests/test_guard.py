@@ -44,11 +44,19 @@ def test_body_over_limit_is_rejected():
 
 def test_runs_are_limited_per_client_and_globally():
     client = guarded(client_run_limits="2/minute", global_run_limits="3/minute")
-    a = {"x-forwarded-for": "198.51.100.9, 203.0.113.1"}
+    a = {"x-forwarded-for": "203.0.113.1"}
+    a_spoofing = {"x-forwarded-for": "6.6.6.6,203.0.113.1"}
     b = {"x-forwarded-for": "203.0.113.2"}
-    assert [client.post("/run", headers=a).status_code for _ in range(3)] == [200, 200, 429]
+    assert [client.post("/run", headers=h).status_code for h in (a, a_spoofing, a)] == [200, 200, 429]
     assert client.post("/run", headers=b).status_code == 200
     assert client.post("/run", headers=b).status_code == 429
+
+
+def test_cross_origin_runs_are_refused_before_counting():
+    client = guarded(global_run_limits="1/minute")
+    elsewhere = {"origin": "https://elsewhere.example"}
+    assert [client.post("/run", headers=elsewhere).status_code for _ in range(3)] == [403] * 3
+    assert client.post("/run", headers={"origin": "http://testserver"}).status_code == 200
 
 
 @pytest.mark.parametrize("password,status", [(None, 401), ("wrong", 401), ("s3cret", 200)])

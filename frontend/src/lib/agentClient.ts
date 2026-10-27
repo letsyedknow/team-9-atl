@@ -1,4 +1,4 @@
-// Frontend ↔ agent service (contracts/agent-interface.md). One origin; IAP handles identity.
+// Frontend ↔ agent service (contracts/agent-interface.md). One origin; the service handles identity (IAP sign-in or a shared password).
 import type { ChatContext, MapData } from "./types";
 
 export const APP = "readiness_agent";

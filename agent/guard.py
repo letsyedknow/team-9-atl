@@ -6,6 +6,7 @@ import hmac
 import json
 import re
 from collections.abc import Iterable
+from urllib.parse import urlsplit
 
 from limits import RateLimitItem, parse_many
 from limits.storage import MemoryStorage
@@ -14,7 +15,7 @@ from limits.strategies import MovingWindowRateLimiter
 MAX_BODY_BYTES = 64 * 1024
 CLIENT_RUN_LIMITS = "10/minute;120/hour"
 CLIENT_SESSION_LIMITS = "30/hour"
-GLOBAL_RUN_LIMITS = "60/minute;2000/day"
+GLOBAL_RUN_LIMITS = "60/minute;600/hour"
 
 _SESSION_CREATE = re.compile(r"^/apps/readiness_agent/users/[A-Za-z0-9_-]{1,64}/sessions$")
 _RUN_PATHS = {"/run", "/run_sse"}
@@ -61,6 +62,10 @@ class RequestGuard:
             return
         if method != "POST" or not (path in _RUN_PATHS or _SESSION_CREATE.match(path)):
             await _respond(send, 404, "not found")
+            return
+
+        if not _same_origin(scope):
+            await _respond(send, 403, "origin not allowed")
             return
 
         client = _client_ip(scope)
@@ -114,12 +119,24 @@ class RequestGuard:
         return True
 
 
+def _header(scope, name: bytes) -> str | None:
+    for key, value in scope["headers"]:
+        if key == name:
+            return value.decode("latin-1")
+    return None
+
+
+def _same_origin(scope) -> bool:
+    origin = _header(scope, b"origin")
+    return origin is None or urlsplit(origin).netloc == _header(scope, b"host")
+
+
 def _client_ip(scope) -> str:
-    # Google's front end appends the connecting address, so the last entry is the one a client
-    # cannot forge.
-    for name, value in scope["headers"]:
-        if name == b"x-forwarded-for":
-            return value.decode("latin-1").split(",")[-1].strip()
+    # Cloud Run's front end appends the connecting address after anything the client sent, so the
+    # last entry is the one a client cannot forge.
+    forwarded = _header(scope, b"x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[-1].strip()
     return (scope.get("client") or ("unknown",))[0]
 
 

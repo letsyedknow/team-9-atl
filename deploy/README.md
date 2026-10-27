@@ -13,7 +13,7 @@ The ADK agent in `agent/` runs on Cloud Run as `evac-readiness-agent` (project `
 - `team`: Identity-Aware Proxy sign-in for the Google accounts in `deploy/iap_members.txt`. To add someone, add a line and rerun the script. Accounts outside the lab organization also need the IAP OAuth consent screen set to External in the Cloud Console.
 - `public`: no sign-in. The browser asks for a shared password (any user name), stored in Secret Manager as `access-password`.
 
-Either way, `agent/guard.py` admits only the requests the frontend makes (static files, session create, `/run`, `/run_sse`, `/health`), caps request bodies at 64 KB and rate-limits agent runs per client (10 a minute, 120 an hour) and overall (60 a minute, 2,000 a day). ADK refuses cross-origin browser requests and sends no CORS headers, each run is capped at 16 model calls, and Cloud Run runs at most one instance.
+Either way, `agent/guard.py` admits only the requests the frontend makes (static files, session create, `/run`, `/run_sse`, `/health`), caps request bodies at 64 KB and refuses cross-origin requests, and rate-limits agent runs per client (10 a minute, 120 an hour) and overall (60 a minute, 600 an hour). Counters live in the one instance's memory and start over when it restarts, so the per-minute limits are the firm ones. ADK repeats the origin check and sends no CORS headers, each run is capped at 16 model calls, and Cloud Run runs at most one instance.
 
 ## How it fits together
 
