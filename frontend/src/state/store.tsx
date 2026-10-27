@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useReducer, type Dispatch, type ReactNode } from "react";
-import type { Category, ChatExchange, County, MapData, Shelter } from "../lib/types";
+import type { Category, ChatExchange, County, MapData, Shelter, WheelchairCheck } from "../lib/types";
 import type { LineString, Point } from "geojson";
 
 export interface ScenarioInput {
@@ -19,6 +19,8 @@ export interface State {
   drawing: boolean;
   /** Session memory only: place ids per shelter, never titles/URIs/text (FR-022). */
   liveChecks: Map<string, { placeIds: string[]; checked_at: string }>;
+  /** Google Maps wheelchair lookups, shown with attribution and kept only while the page is open. */
+  wheelchairChecks: Map<string, WheelchairCheck>;
   chat: ChatExchange[];
 }
 
@@ -35,6 +37,7 @@ export const initialState: State = {
   scenario: null,
   drawing: false,
   liveChecks: new Map(),
+  wheelchairChecks: new Map(),
   chat: [],
 };
 
@@ -53,7 +56,8 @@ export type Action =
   | { type: "setDrawing"; drawing: boolean }
   | { type: "chatStart"; exchange: ChatExchange }
   | { type: "chatUpdate"; id: string; patch: Partial<ChatExchange> }
-  | { type: "liveCheck"; shelterId: string; placeIds: string[] };
+  | { type: "liveCheck"; shelterId: string; placeIds: string[] }
+  | { type: "wheelchairChecked"; results: WheelchairCheck[] };
 
 export function reducer(state: State, action: Action): State {
   switch (action.type) {
@@ -112,6 +116,11 @@ export function reducer(state: State, action: Action): State {
       const liveChecks = new Map(state.liveChecks);
       liveChecks.set(action.shelterId, { placeIds: action.placeIds, checked_at: new Date().toISOString() });
       return { ...state, liveChecks };
+    }
+    case "wheelchairChecked": {
+      const wheelchairChecks = new Map(state.wheelchairChecks);
+      for (const r of action.results) wheelchairChecks.set(r.shelter_id, r);
+      return { ...state, wheelchairChecks };
     }
   }
 }
