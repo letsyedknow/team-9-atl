@@ -1,0 +1,5 @@
+google-adk>=1.0.0
+google-cloud-bigquery>=3.25.0
+google-cloud-aiplatform>=1.92.0
+pandas>=2.2.0
+python-dotenv>=1.0.0
