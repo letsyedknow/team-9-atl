@@ -12,12 +12,18 @@ bq --location US show "${PROD}" >/dev/null 2>&1 ||
 
 tables() {
   bq query --quiet --use_legacy_sql=false --format=csv \
-    "SELECT table_id FROM \`${PROJECT_ID}.$1.__TABLES__\` WHERE REGEXP_CONTAINS(table_id, r'$2') ORDER BY 1" | tail -n +2
+    "SELECT table_name FROM \`${PROJECT_ID}.$1.INFORMATION_SCHEMA.TABLES\` WHERE table_type = 'BASE TABLE' AND REGEXP_CONTAINS(table_name, r'$2') ORDER BY 1" |
+    tail -n +2
 }
 
 copy() {
-  local src="$1" pattern="$2"
-  for t in $(tables "${src}" "${pattern}"); do
+  local src="$1" pattern="$2" list
+  list="$(tables "${src}" "${pattern}")"
+  if [[ -z "${list}" ]]; then
+    echo "no tables matched in ${src}" >&2
+    exit 1
+  fi
+  for t in ${list}; do
     bq cp --force --quiet "${PROJECT_ID}:${src}.${t}" "${PROD}.${t}" >/dev/null
     echo "${src}.${t} -> evac_prod.${t}"
   done

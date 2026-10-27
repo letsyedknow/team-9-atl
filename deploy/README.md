@@ -38,4 +38,4 @@ Runtime settings (both `.env` and Cloud Run): `GOOGLE_GENAI_USE_VERTEXAI=TRUE`, 
 
 ## Data
 
-The agent reads `evac_prod`, a stable copy of the team's data, so a reload in progress never changes what the live agent sees. `deploy/refresh_evac_prod.sh` copies snapshots of `evacuation_readiness` (`*_clean`, `*_flow_staging`) and all of `hurricane_history` into it; rerun it after either source changes. Other inputs and model outputs are loaded into `evac_prod` directly, and the refresh script leaves them alone.
+The agent reads `evac_prod`, a copy of the team's data that changes only when someone runs `deploy/refresh_evac_prod.sh`. The script copies snapshots of `evacuation_readiness` (`*_clean`, `*_flow_staging`) and all of `hurricane_history` into it; rerun it after either source changes. Tables are copied one at a time, so run it when nobody is mid-demo. Other inputs and model outputs are loaded into `evac_prod` directly, and the refresh script leaves them alone.
