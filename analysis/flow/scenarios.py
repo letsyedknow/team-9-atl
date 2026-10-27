@@ -16,20 +16,19 @@ from common import (
 
 EXTDATA = Path(os.environ.get("EXTDATA", Path.home() / "work" / "extdata"))
 IBTRACS = EXTDATA / "ibtracs" / "ibtracs_na_within300km_ga.parquet"
-GDOT = EXTDATA / "gdot_evac"
+TIGER = EXTDATA / "tiger_roads" / "tl_2023_13_prisecroads.shp"
 BUF = CORRIDOR_BUFFER_KM * 1000
 LEVELS = ("low", "base", "high")
 
 GA_COAST = ("13051", "13029", "13179", "13191", "13127", "13039")
 GA_COASTAL_FLOOD = GA_COAST + ("13025", "13049", "13103", "13183", "13251", "13305")
 
-# GDOT route ids encode the state route number: SR 401 is I-75, SR 404 is I-16.
-GDOT_I75 = "1000100040100INC"
-GDOT_I16 = "1000100040400INC"
-
-# I-20 is not in the GDOT hurricane layer; approximated through interchange towns.
-I20 = [(-81.98, 33.49), (-82.50, 33.47), (-83.18, 33.58), (-83.47, 33.60),
-       (-83.86, 33.62), (-84.01, 33.67), (-84.39, 33.75)]
+# Assumption: the coastal exit network is the Interstates and US highways that leave the six coastal
+# counties inland or cross the Florida line into southeast Georgia, south of Macon and Augusta.
+EXIT_NETWORK = r"^(I- (16|75)|US Hwy (1|23|25|80|82|84|280|301|341))( |$)"
+EXIT_NETWORK_MAX_LAT = 33.0
+MACON_LAT = 32.84
+ATLANTA_LON = -84.40
 
 # Every rate is an assumption, bracketed low/base/high.
 EVACUATION_RATE = {"low": 0.20, "base": 0.35, "high": 0.50}
@@ -40,14 +39,14 @@ SCENARIOS = {
     "a_ga_coast": {
         "label": "(a) Atlantic hit on the Georgia coast",
         "origins": {"GA": {"counties": GA_COAST, "to_ga": {"low": 0.60, "base": 0.75, "high": 0.90}}},
-        "routes": "gdot_network",
+        "routes": "exit_network",
         "entry": "origin",
         "exclude_hosts": GA_COAST,
     },
     "a_ga_coast_wider_hosts_excluded": {
         "label": "(a') as (a), with all 12 coastal-flood counties unavailable as hosts",
         "origins": {"GA": {"counties": GA_COAST, "to_ga": {"low": 0.60, "base": 0.75, "high": 0.90}}},
-        "routes": "gdot_network",
+        "routes": "exit_network",
         "entry": "origin",
         "exclude_hosts": GA_COASTAL_FLOOD,
     },
@@ -58,7 +57,7 @@ SCENARIOS = {
                    "to_ga": {"low": 0.20, "base": 0.35, "high": 0.50}},
             "GA": {"counties": GA_COAST, "to_ga": {"low": 0.60, "base": 0.75, "high": 0.90}},
         },
-        "routes": "gdot_network",
+        "routes": "exit_network",
         "entry": "origin",
         "exclude_hosts": GA_COAST,
     },
@@ -135,14 +134,13 @@ near_miss = con.execute("""
 print("offshore near misses of the GA coast:", near_miss)
 
 con.execute(f"""
-    CREATE TABLE gdot_lines AS
-    SELECT ROUTE_ID AS route_id, ST_Transform(geom, {PROJ}) AS geom
-    FROM ST_Read('{GDOT / 'hurricane_evacuation_routes.geojson'}')
-    UNION ALL
-    SELECT 'contraflow ' || TITLE, ST_Transform(geom, {PROJ})
-    FROM ST_Read('{GDOT / 'hurricane_evacuation_contraflow_route.geojson'}')
+    CREATE TABLE roads AS
+    SELECT FULLNAME AS route, ST_Y(ST_Centroid(geom)) AS lat, ST_X(ST_Centroid(geom)) AS lon,
+           ST_Transform(geom, {PROJ}) AS geom
+    FROM ST_Read('{TIGER}')
+    WHERE regexp_matches(FULLNAME, '^(I- \\d+|US Hwy \\d+)( |$)')
 """)
-assert one(con, "SELECT COUNT(*) FROM gdot_lines") == 110
+assert one(con, "SELECT COUNT(*) FROM roads WHERE route = 'I- 75'") > 0
 
 
 def linestring(pts):
@@ -150,22 +148,25 @@ def linestring(pts):
 
 
 route_sql = {
-    "gdot_network": "SELECT geom FROM gdot_lines",
-    "i75": f"""SELECT geom FROM gdot_lines WHERE route_id = '{GDOT_I75}'
-               UNION ALL SELECT {linestring(CORRIDORS['I-75 north (Macon to TN line)'])} AS geom""",
-    "i20": f"SELECT {linestring(I20)} AS geom",
+    "exit_network": f"""SELECT geom FROM roads
+                        WHERE regexp_matches(route, '{EXIT_NETWORK}') AND lat < {EXIT_NETWORK_MAX_LAT}""",
+    "i75": "SELECT geom FROM roads WHERE route = 'I- 75'",
+    "i20": f"SELECT geom FROM roads WHERE route = 'I- 20' AND lon > {ATLANTA_LON}",
 }
+for name, sql in route_sql.items():
+    print(name, "segments:", one(con, f"SELECT COUNT(*) FROM ({sql})"))
 
 check = {}
-for gdot_id, name in ((GDOT_I75, "I-75 south (FL line to Macon)"), (GDOT_I16, "I-16 (Savannah to Macon)")):
+for where, name in ((f"route = 'I- 75' AND lat < {MACON_LAT}", "I-75 south (FL line to Macon)"),
+                    ("route = 'I- 16'", "I-16 (Savannah to Macon)")):
     km = con.execute(f"""
-        WITH v AS (SELECT UNNEST(ST_Dump(ST_Points(geom))).geom AS p FROM gdot_lines WHERE route_id = '{gdot_id}')
+        WITH v AS (SELECT UNNEST(ST_Dump(ST_Points(geom))).geom AS p FROM roads WHERE {where})
         SELECT max(ST_Distance(p, {linestring(CORRIDORS[name])})) / 1000,
                quantile_cont(ST_Distance(p, {linestring(CORRIDORS[name])}), 0.5) / 1000
         FROM v
     """).fetchall()[0]
     check[name] = {"max_km": km[0], "median_km": km[1]}
-    print(f"{name}: GDOT vertices within max {km[0]:.1f} km, median {km[1]:.1f} km of the approximation")
+    print(f"{name}: TIGER vertices within max {km[0]:.1f} km, median {km[1]:.1f} km of the approximation")
 
 
 def total(df, *cols) -> float:
@@ -321,7 +322,7 @@ save_numbers("scenarios", {
     "storms_since_1950_hurricane_within_300km": one(con, "SELECT COUNT(*) FROM storms"),
     "storm_classes": {c: {"storms": n, "names": names} for c, n, names in storm_counts},
     "ga_coast_offshore_near_misses": {"storms": near_miss[0], "names": near_miss[1], "km": NEAR_MISS_KM},
-    "corridor_check_vs_gdot": check,
+    "corridor_check_vs_tiger": check,
     "ga_coast_usable_shelters": coast[0],
     "ga_coast_clean_seats": coast[1],
     "ga_coast_shelters_in_surge": coast[2],
