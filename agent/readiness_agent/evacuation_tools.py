@@ -269,6 +269,19 @@ def check_shelter_google_maps(shelter_id: str) -> dict[str, Any]:
     Google Maps data is fetched on every call and is not cached or persisted. The caller should
     verify the candidate name, address and distance before treating it as the shelter.
     """
+    try:
+        return _check_shelter_google_maps(shelter_id)
+    except (RuntimeError, ValueError) as exc:
+        return {
+            "status": "error",
+            "shelter_id": shelter_id,
+            "message": str(exc),
+            "candidates": [],
+            "source": "Google Maps · Places API (live listing; check failed)",
+        }
+
+
+def _check_shelter_google_maps(shelter_id: str) -> dict[str, Any]:
     api_key = os.getenv("GOOGLE_MAPS_API_KEY")
     if not api_key:
         raise RuntimeError(

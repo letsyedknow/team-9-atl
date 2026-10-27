@@ -150,8 +150,9 @@ def test_check_shelter_google_maps_uses_coordinates_and_returns_live_listing(mon
 
 def test_check_shelter_google_maps_requires_api_key(monkeypatch):
     monkeypatch.delenv("GOOGLE_MAPS_API_KEY", raising=False)
-    with pytest.raises(RuntimeError, match="GOOGLE_MAPS_API_KEY"):
-        tools.check_shelter_google_maps("363507")
+    result = tools.check_shelter_google_maps("363507")
+    assert result["status"] == "error" and "GOOGLE_MAPS_API_KEY" in result["message"]
+    assert result["candidates"] == [] and "Google Maps" in result["source"]
 
 
 def test_check_shelter_google_maps_returns_no_match_without_claiming_closed(monkeypatch):
