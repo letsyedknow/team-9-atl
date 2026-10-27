@@ -22,6 +22,7 @@ from .evacuation_tools import (
     get_shelters,
     record_live_check,
 )
+from .scenario_tools import gap_sensitivity, run_scenario, season_county_risk
 
 PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-04-edc952746633")
 DATASET_ID = os.getenv("EVAC_DATASET", "evac_prod")
@@ -69,6 +70,12 @@ Tools:
   "renamed" only when a name change is verified, "exists" for a verified current match, and
   "unknown" for ambiguous matches, temporary closures, or unavailable status. Do not retain Maps
   details; record only the place_id with record_live_check.
+- For any "what if a storm..." question, who is at risk, or where people could go, call run_scenario.
+  It reads the track drawn on the map from CONTEXT v1 itself; never copy coordinates into it. Report
+  its numbers as a "scenario range from 27 past storms", never as a forecast or confidence interval,
+  and say so when it returns support "outside_labeled_support".
+- For season-long risk use season_county_risk; for what to fix first use gap_sensitivity.
+- Every number you state comes from a tool. Do not compute or estimate figures yourself.
 - For ad hoc BigQuery access, use only the read-only MCP tool against project `{PROJECT_ID}` and
   dataset `{DATASET_ID}`, tables ending in `_clean`.
 - To judge whether a specific shelter is accessible or still exists, ground that one building with
@@ -119,5 +126,8 @@ root_agent = Agent(
         build_readiness_brief,
         get_shelters,
         record_live_check,
+        run_scenario,
+        season_county_risk,
+        gap_sensitivity,
     ],
 )
