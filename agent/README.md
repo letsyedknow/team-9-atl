@@ -1,12 +1,18 @@
-# Your agent goes here
+# Evacuation readiness agent
 
-This folder is empty on purpose.
+The ADK agent combines purpose-built Python tools, Google Maps grounding, and the
+Google-managed BigQuery MCP server. The MCP connection is restricted to the
+read-only `execute_sql_readonly` tool and uses Application Default Credentials
+(ADC), refreshed for each connection as needed. Use the existing `.env.example`
+for the project and dataset settings.
 
-We built the on-ramp: every registered shelter in your state with capacity and accessibility, the
-census tracts around them with disability, vehicle access and age, the counties where people depend
-on electricity for medical equipment, hurricane and coastal-flood exposure per tract, and a
-validation suite that tells you plainly whether any of it is wrong. We did not build the vehicle.
-The design decisions in your agent are what you are judged on.
+Before running or deploying the agent, enable the BigQuery API and grant its
+runtime identity `roles/mcp.toolUser` and `roles/bigquery.jobUser` on the query
+project, plus `roles/bigquery.dataViewer` on the `evacuation_readiness` dataset.
+Local development can use ADC from `gcloud auth application-default login`;
+production should use a dedicated workload identity or attached service account
+with only those permissions. No service-account key or static access token is
+required.
 
 ## What has to be true of what you build here
 
