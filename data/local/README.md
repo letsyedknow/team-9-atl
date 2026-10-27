@@ -47,3 +47,19 @@ Join on fips codes and ids, never on county or facility names.
 - Never draw Google Maps or Routes output (places, routes, drive times) on OpenStreetMap or Leaflet tiles. Our own data above can go on any basemap.
 - Store only Maps `place_id`; fetch place details and routes live and show Google attribution next to them.
 - This is a pre-season planning tool, not live emergency operations.
+
+## Cleaned tables (`clean/`)
+
+Cleaned versions of care facilities, hazard tracts and power-dependent counties, built by `data/clean` on `lane/data` (codex-reviewed). One row per source row, same keys. The leading columns are the raw values with the same names as the team BigQuery `*_clean` tables; cleaned and added values sit after them, and every added column `x` has `x_status` (recorded / unrecorded / imputed / assumption / suspect / external) and `x_rule` (the rule that set it).
+
+| File | Rows | Key | Notable added columns |
+|---|---|---|---|
+| `clean/care_facilities` | 356 | `cms_certification_number_ccn` | `nearest_tract_geo_id`, `county_fips`, `occupancy_rate`, `hrcn_ealp_pctile`, `coastal_flood_exposed`, `km_nearest_medical_shelter` |
+| `clean/hazard_tracts` | 2,791 | `geo_id` | `county_fips`, `hrcn_ealp_pctile`, `cfld_expp_clean` (0 outside the coastal layer, status `imputed`), `coastal_flood_exposed` |
+| `clean/power_dependent_counties` | 159 | `fips_code` | live emPOWER columns (`dialysis_live` = 18,026), `*_low` bounds for suppressed 1-11 cells, `dialysis_centers`, `dialysis_stations` |
+| `clean/dialysis_centers` | 355 | CMS CCN | Census-geocoded coordinates with match quality |
+| `clean/overture_places` | 2 | | CC0 rows only; 4,856 CDLA-Permissive/Apache rows held until the organizers rule on those licences |
+
+Each table is in `clean/*.parquet` and `clean/json/*.json`. Rules and counts: `clean/CLEANING.md`; information gaps and how each is filled: `clean/GAPS.md`; sources and licences: `clean/SOURCES.md`.
+
+Distances to medical shelters use the raw shelters table until the teammate shelters_clean exists. Shelters are not cleaned here.

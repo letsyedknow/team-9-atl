@@ -1,0 +1,175 @@
+[
+  {
+    "id": "nursing_home_occupancy",
+    "table": "care_facilities",
+    "gap": "Residents to move per nursing home",
+    "size": {
+      "facilities": 356,
+      "occupancy_unrecorded": 2,
+      "avg_residents_per_day": 31820.8,
+      "cms_certified_beds": 39462.0,
+      "occupancy_pct": 80.84
+    },
+    "affects": "medical transport demand from care facilities",
+    "fill": "external_source",
+    "fill_status": "partially_filled",
+    "detail": "CMS 'Average Number of Residents per Day', an average not the census on the day. Daily census (CMS Payroll Based Journal) is not loaded."
+  },
+  {
+    "id": "non_ambulatory_share",
+    "table": "care_facilities",
+    "gap": "Residents needing a stretcher or wheelchair vehicle",
+    "size": {
+      "facilities": 356
+    },
+    "affects": "vehicle type mix for care-facility evacuation",
+    "fill": "assumption_range",
+    "detail": "CMS MDS 3.0 frequency report is state-level only (not loaded): apply as a labelled range per home.",
+    "fill_status": "open"
+  },
+  {
+    "id": "nursing_home_generators_plans",
+    "table": "care_facilities",
+    "gap": "Generator, fuel and evacuation-agreement status of each nursing home",
+    "size": {
+      "facilities": 356
+    },
+    "affects": "shelter-in-place vs evacuate decision per facility",
+    "fill": "never_filled",
+    "detail": "Not in CMS provider files. Ask the facility or the state survey agency.",
+    "fill_status": "open"
+  },
+  {
+    "id": "alf_pch_missing",
+    "table": "care_facilities",
+    "gap": "Assisted living, personal care, home health and hospice are not in care_facilities",
+    "size": {
+      "overture_assisted_living": 421,
+      "overture_retirement_homes": 1646,
+      "overture_home_health": 2037,
+      "overture_hospice": 375
+    },
+    "affects": "medically dependent population outside nursing homes",
+    "fill": "external_source",
+    "fill_status": "partially_filled",
+    "detail": "overture_places (status external, Overture confidence and per-row licence kept). Listings only: no beds, no licensure. DCH licensed lists state no licence and are not used."
+  },
+  {
+    "id": "nemt_ambulance_inventory",
+    "table": "care_facilities",
+    "gap": "NEMT, para-transit and ambulance fleet",
+    "size": {
+      "overture_ambulance_ems": 258,
+      "overture_medical_transport": 40,
+      "vehicles": 0
+    },
+    "affects": "transport capacity for medically dependent evacuees",
+    "fill": "assumption_range",
+    "fill_status": "partially_filled",
+    "detail": "Overture locates operators, never fleet size or wheelchair vans. Fleet is a labelled low/base/high input until a county or state inventory is supplied."
+  },
+  {
+    "id": "medical_shelter_distance",
+    "table": "care_facilities",
+    "gap": "Distance from each facility to a usable medical-needs shelter",
+    "size": {
+      "median_km_pending": 52.1143
+    },
+    "affects": "medical sheltering access per facility",
+    "fill": "external_source",
+    "detail": "Computed read-only from the raw snapshot shelters (is_medical): pending teammate shelters_clean.",
+    "fill_status": "open"
+  },
+  {
+    "id": "dialysis_coordinates",
+    "table": "dialysis_centers",
+    "gap": "Dialysis centers without coordinates",
+    "size": {
+      "geocode_geocoded_census_exact": 242,
+      "geocode_geocoded_census_non_exact": 81,
+      "geocode_unmatched": 32,
+      "stations_without_coordinates": 505
+    },
+    "affects": "distance from dialysis patients to an operating center; center flood exposure",
+    "fill": "external_source",
+    "fill_status": "partially_filled",
+    "detail": "Census Geocoder (US Government work), match quality in coordinates_confidence. Unmatched: Maps place_id lookup at runtime."
+  },
+  {
+    "id": "empower_suppressed",
+    "table": "power_dependent_counties",
+    "gap": "emPOWER counts 1-10 published as 11",
+    "size": {
+      "counties_dialysis": 9,
+      "counties_oxygen": 6,
+      "counties_home_health": 13,
+      "counties_hospice": 44
+    },
+    "affects": "dialysis, oxygen and home-health demand in small counties",
+    "fill": "assumption_range",
+    "detail": "Carried as the range 1-11 (<field>_live_low = 1, value = 11, status imputed).",
+    "fill_status": "open"
+  },
+  {
+    "id": "empower_snapshot_mismatch",
+    "table": "power_dependent_counties",
+    "gap": "Snapshot dialysis-like column disagrees with the live service",
+    "size": {
+      "snapshot_facility_esrd_dialysis_any_dme": 6009.0,
+      "live_dialysis": 18026,
+      "snapshot_power_dependent": 92567.0,
+      "live_power_dependent": 106561
+    },
+    "affects": "dialysis and power-dependent demand",
+    "fill": "external_source",
+    "fill_status": "filled",
+    "detail": "Live emPOWER is canonical and carried beside the snapshot; the snapshot column is marked suspect."
+  },
+  {
+    "id": "power_dependence_granularity",
+    "table": "power_dependent_counties",
+    "gap": "Power dependence is county-level",
+    "size": {
+      "counties": 159
+    },
+    "affects": "where in a county power-dependent residents live",
+    "fill": "external_source",
+    "detail": "emPOWER ZIP counts exist (extdata/emPOWER/empower_ga_zip.csv), not joined. Never assign to a block.",
+    "fill_status": "open"
+  },
+  {
+    "id": "surge_exposure",
+    "table": "hazard_tracts",
+    "gap": "Storm-surge inundation by category",
+    "size": {
+      "tracts_in_nri_coastal_flood_layer": 182
+    },
+    "affects": "which facilities and tracts flood in a given storm",
+    "fill": "external_source",
+    "detail": "NRI coastal flood is an annualised composite. NOAA NHC SLOSH MOM rasters (public domain) are documented in extdata/slosh, not clipped.",
+    "fill_status": "open"
+  },
+  {
+    "id": "tracts_without_hazard_row",
+    "table": "hazard_tracts",
+    "gap": "2020 tracts with no NRI hazard row",
+    "size": {
+      "tracts": 5,
+      "population": 0.0
+    },
+    "affects": "nothing while population is 0 (water tracts)",
+    "fill": "never_filled",
+    "detail": "Asserted at build: the build fails if any populated tract lacks a row.",
+    "fill_status": "open"
+  },
+  {
+    "id": "evacuation_route_geometry",
+    "table": null,
+    "gap": "Official evacuation route geometry",
+    "size": {},
+    "affects": "which roads evacuees use",
+    "fill": "external_source",
+    "detail": "Licence gap: the GDOT layer states no licence and is not shipped. Analyses use Census TIGER/Line 2023 roads by route name; drive legs come from Maps routing at runtime, nothing stored.",
+    "fill_status": "open"
+  }
+]
