@@ -45,11 +45,13 @@ Source: `shelters`. It is a registry record and is never edited (FR-008).
 | `is_medical` | Flag | `population_code` contains `MEDICAL` | `UNRECORDED` if `population_code` is null |
 | `in_surge_slosh_area` | Flag | | |
 | `quality_flags` | (`"suspect_capacity"` \| `"location_disagrees"`)[] | | Suspect if capacity < 0 or > 100,000 (research R7) |
-| `live_check` | LiveCheck? | Filled at runtime from chat grounding only | In memory, never persisted |
+| `live_check` | LiveCheck? | Filled at runtime from the agent's `record_live_check` tool results | In memory, never persisted |
 
-**LiveCheck** (session memory only): `status` (`exists` \| `renamed` \| `closed` \| `unknown`),
-`checked_at` (ISO timestamp), `place_id`, and `sources` (`{title, uri}[]`, rendered and never
-stored).
+**LiveCheck** (session memory only): populated from `record_live_check` tool results
+(contracts §3). Holds `status` (`exists` \| `renamed` \| `closed` \| `unknown`), `checked_at`
+(ISO timestamp) and `place_id`. Maps titles, URIs and text are rendered with the answer and never
+stored (FR-022). `renamed` and `closed` show a discrepancy marker; the registry record is never
+edited (FR-008).
 
 ## County
 

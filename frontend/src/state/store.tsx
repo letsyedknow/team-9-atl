@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useReducer, type Dispatch, type ReactNode } from "react";
-import type { Category, ChatExchange, County, MapData, Shelter, WheelchairCheck } from "../lib/types";
+import type { Category, ChatExchange, County, LiveCheckStatus, MapData, Shelter, WheelchairCheck } from "../lib/types";
 import type { LineString, Point } from "geojson";
 
 export interface ScenarioInput {
@@ -17,8 +17,8 @@ export interface State {
   highlight: { shelterIds: Set<string>; countyFips: Set<string> };
   scenario: ScenarioInput | null;
   drawing: boolean;
-  /** Session memory only: place ids per shelter, never titles/URIs/text (FR-022). */
-  liveChecks: Map<string, { placeIds: string[]; checked_at: string }>;
+  /** Session memory only: status and place ids per shelter, never titles/URIs/text (FR-022). */
+  liveChecks: Map<string, { status: LiveCheckStatus; placeIds: string[]; checked_at: string }>;
   /** Google Maps wheelchair lookups, shown with attribution and kept only while the page is open. */
   wheelchairChecks: Map<string, WheelchairCheck>;
   chat: ChatExchange[];
@@ -56,7 +56,7 @@ export type Action =
   | { type: "setDrawing"; drawing: boolean }
   | { type: "chatStart"; exchange: ChatExchange }
   | { type: "chatUpdate"; id: string; patch: Partial<ChatExchange> }
-  | { type: "liveCheck"; shelterId: string; placeIds: string[] }
+  | { type: "liveCheck"; shelterId: string; status: LiveCheckStatus; placeIds: string[] }
   | { type: "wheelchairChecked"; results: WheelchairCheck[] };
 
 export function reducer(state: State, action: Action): State {
@@ -114,7 +114,11 @@ export function reducer(state: State, action: Action): State {
       };
     case "liveCheck": {
       const liveChecks = new Map(state.liveChecks);
-      liveChecks.set(action.shelterId, { placeIds: action.placeIds, checked_at: new Date().toISOString() });
+      liveChecks.set(action.shelterId, {
+        status: action.status,
+        placeIds: action.placeIds,
+        checked_at: new Date().toISOString(),
+      });
       return { ...state, liveChecks };
     }
     case "wheelchairChecked": {

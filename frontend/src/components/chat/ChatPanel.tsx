@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { streamChat, type AgentEvent } from "../../lib/agentClient";
-import { collectReferences } from "../../lib/grounding";
-import type { ChatContext, ChatExchange, GroundingMetadata, HurricaneScenario } from "../../lib/types";
+import { emptyFold, foldEvent, type Fold } from "../../lib/chatFold";
+import type { ChatContext, ChatExchange, HurricaneScenario } from "../../lib/types";
 import { useStore } from "../../state/store";
 import { useScenario } from "../../state/scenario";
 import AnswerView from "./AnswerView";
@@ -43,10 +43,7 @@ export default function ChatPanel() {
   }, [state.chat]);
 
   async function run(question: string, context: ChatContext, id: string) {
-    let text = "";
-    let grounding: GroundingMetadata | undefined;
-    const shelterIds = new Set<string>();
-    const countyFips = new Set<string>();
+    let acc: Fold = emptyFold;
     const update = (patch: Partial<ChatExchange>) => dispatch({ type: "chatUpdate", id, patch });
 
     try {
@@ -54,38 +51,28 @@ export default function ChatPanel() {
         question,
         context,
         onEvent: (e: AgentEvent) => {
-          for (const part of e.content?.parts ?? []) {
-            if (part.functionResponse) {
-              const refs = collectReferences(part.functionResponse.response);
-              refs.shelterIds.forEach((s) => shelterIds.add(s));
-              refs.countyFips.forEach((f) => countyFips.add(f));
-            }
-          }
-          const chunk = (e.content?.parts ?? []).map((p) => p.text ?? "").join("");
-          if (chunk && e.author !== "user") {
-            // Partial events carry deltas; the final event carries the whole text.
-            text = e.partial ? text + chunk : chunk;
-          }
-          if (e.groundingMetadata) grounding = e.groundingMetadata;
+          acc = foldEvent(acc, e);
           update({
             status: "streaming",
-            text,
-            groundingMetadata: grounding,
-            referenced_shelter_ids: [...shelterIds],
-            referenced_county_fips: [...countyFips],
+            text: acc.text,
+            groundingMetadata: acc.grounding,
+            referenced_shelter_ids: acc.shelterIds,
+            referenced_county_fips: acc.countyFips,
           });
         },
       });
       update({ status: "done" });
-      dispatch({ type: "highlight", shelterIds: [...shelterIds], countyFips: [...countyFips] });
-      // Keep only place ids for shelters the answer referred to and Maps named (FR-022).
-      for (const sid of shelterIds) {
-        const name = shelterById.get(sid)?.name.toLowerCase();
-        const placeIds = (grounding?.groundingChunks ?? [])
-          .map((c) => c.maps)
-          .filter((m) => m?.placeId && name && m.title?.toLowerCase().includes(name))
-          .map((m) => m!.placeId!);
-        if (placeIds.length) dispatch({ type: "liveCheck", shelterId: sid, placeIds });
+      dispatch({ type: "highlight", shelterIds: acc.shelterIds, countyFips: acc.countyFips });
+      // The agent reports each grounded shelter via record_live_check; keep only status and
+      // place id for the session (FR-022).
+      for (const lc of acc.liveChecks) {
+        if (!shelterById.has(lc.shelter_id)) continue;
+        dispatch({
+          type: "liveCheck",
+          shelterId: lc.shelter_id,
+          status: lc.status,
+          placeIds: lc.place_id ? [lc.place_id] : [],
+        });
       }
     } catch (e) {
       update({ status: "failed", error: e instanceof Error ? e.message : String(e) });

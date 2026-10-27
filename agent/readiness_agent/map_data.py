@@ -20,13 +20,22 @@ STATE_FIPS = "13"
 # The notebook's own validation thresholds (research R7).
 SUSPECT_LOW, SUSPECT_HIGH = 0, 100_000
 
-SRC_SHELTERS = "FEMA NSS registry · shelters"
-SRC_ACS = "ACS 5-yr · vulnerability_tracts"
-SRC_SVI = "ACS survey estimate via CDC SVI · vulnerability_tracts"
+SRC_SHELTERS = "FEMA NSS registry · shelters_clean"
+SRC_ACS = "ACS 5-yr · vulnerability_tracts_clean"
+SRC_SVI = "ACS survey estimate via CDC SVI · vulnerability_tracts_clean"
 SRC_SLOSH = "NOAA NHC storm-surge maps (SLOSH MOM v4, high tide)"
 
 # Built by scripts/derive_shelter_surge.py: worst-case surge class within ~100 m of each shelter.
 SURGE_CSV = Path(__file__).resolve().parent / "data" / "shelter_surge_slosh.csv"
+
+# One column list for the map load and the agent's shelter tools; verified against
+# evac_prod.shelters_clean by the schema check in tasks T061.
+SHELTER_COLUMNS = (
+    "shelter_id", "shelter_name", "address_1", "city", "zip", "county_fips", "county_name",
+    "county_parish", "latitude", "longitude", "evacuation_capacity", "post_impact_capacity",
+    "usage", "wheelchair_accessible", "generator_onsite", "is_medical", "population_code",
+    "in_surge_slosh_area",
+)
 
 FLAG_KEYS = ("wheelchair_accessible", "generator_onsite", "is_medical", "in_surge_slosh_area")
 COUNTY_FLAG_NAMES = {
@@ -37,15 +46,6 @@ COUNTY_FLAG_NAMES = {
 }
 
 Row = Mapping[str, Any]
-SurgeLookup = Mapping[str, Row]
-
-
-@cache
-def load_surge_lookup(path: Path = SURGE_CSV) -> dict[str, dict]:
-    if not path.exists():
-        return {}
-    with path.open(newline="") as f:
-        return {row["shelter_id"]: row for row in csv.DictReader(f)}
 
 
 def to_flag(value: Any) -> str:
@@ -75,6 +75,17 @@ def _sourced(value: float | None, source: str, kind: str, coverage: str | None =
     return out
 
 
+SurgeLookup = Mapping[str, Row]
+
+
+@cache
+def load_surge_lookup(path: Path = SURGE_CSV) -> dict[str, dict]:
+    if not path.exists():
+        return {}
+    with path.open(newline="") as f:
+        return {row["shelter_id"]: row for row in csv.DictReader(f)}
+
+
 def _surge(registry: str, noaa: Row | None) -> tuple[str, str, dict | None, bool]:
     """Registry flag wins when recorded; a blank one is filled from the NOAA surge maps.
 
@@ -95,7 +106,16 @@ def _surge(registry: str, noaa: Row | None) -> tuple[str, str, dict | None, bool
     return noaa_flag, "noaa_slosh", detail, False
 
 
-def _shelter(row: Row, surge_lookup: SurgeLookup) -> dict:
+def shelter_record(row: Row, surge_lookup: SurgeLookup | None = None) -> dict:
+    """The single place a shelter row becomes a frontend/agent record. Optional columns are read
+    with .get, so a column aliased to NULL degrades to "Not recorded" rather than raising.
+
+    The one fill: a blank registry surge flag takes the NOAA surge-map value from surge_lookup
+    (default: the committed CSV), marked in_surge_source "noaa_slosh" so it is never shown as a
+    registry record.
+    """
+    if surge_lookup is None:
+        surge_lookup = load_surge_lookup()
     fips = row.get("county_fips")
     surge, surge_source, surge_noaa, surge_disagrees = _surge(
         to_flag(row.get("in_surge_slosh_area")), surge_lookup.get(str(row["shelter_id"]))
@@ -129,6 +149,9 @@ def _shelter(row: Row, surge_lookup: SurgeLookup) -> dict:
         **({"surge_noaa": surge_noaa} if surge_noaa else {}),
         "quality_flags": quality,
     }
+
+
+_shelter = shelter_record  # compatibility alias
 
 
 def _flag_counts(shelters: list[dict], key: str) -> dict:
@@ -171,10 +194,9 @@ def build_payload(
 ) -> dict:
     """Pure transform from query rows to the map-data/v1 payload. Never edits or drops a row.
 
-    The one fill: a blank registry surge flag takes the NOAA surge-map value, marked
-    in_surge_source "noaa_slosh" so it is never shown as a registry record.
+    surge_lookup defaults to the committed NOAA CSV; pass {} to see registry values only.
     """
-    shelters = [_shelter(r, surge_lookup or {}) for r in shelter_rows]
+    shelters = [shelter_record(r, surge_lookup) for r in shelter_rows]
     tracts_by_county: dict[str, list[Row]] = {}
     for t in tract_rows:
         tracts_by_county.setdefault(str(t["geo_id"])[:5], []).append(t)
@@ -252,11 +274,9 @@ def _notes(shelters: list[dict]) -> list[str]:
 
 # --- BigQuery access -----------------------------------------------------------------------------
 
-SHELTERS_SQL = """
-SELECT shelter_id, shelter_name, address_1, city, zip, county_fips, county_name, county_parish,
-       latitude, longitude, evacuation_capacity, post_impact_capacity, usage,
-       wheelchair_accessible, generator_onsite, is_medical, population_code, in_surge_slosh_area
-FROM `{project}.{dataset}.shelters_clean`
+SHELTERS_SQL = f"""
+SELECT {", ".join(SHELTER_COLUMNS)}
+FROM `{{project}}.{{dataset}}.shelters_clean`
 WHERE state = 'GA' AND latitude IS NOT NULL AND longitude IS NOT NULL
 """
 
@@ -294,7 +314,6 @@ def get_georgia_map_data(project: str, dataset: str = "evac_prod") -> dict:
         rows(SHELTERS_SQL),
         rows(TRACTS_SQL),
         [(r["county_fips"], r["county_name"]) for r in rows(COUNTIES_SQL)],
-        surge_lookup=load_surge_lookup(),
     )
     _CACHE[key] = (time.monotonic(), payload)
     return payload

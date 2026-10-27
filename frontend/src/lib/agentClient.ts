@@ -18,6 +18,9 @@ export interface AgentEvent {
   groundingMetadata?: import("./types").GroundingMetadata;
   errorCode?: string;
   errorMessage?: string;
+  /** ADK's /run_sse reports a mid-stream failure as {"error": "...", "error_details": {...}}. */
+  error?: string;
+  error_details?: { error_type?: string; error_message?: string };
 }
 
 export async function createSession(signal?: AbortSignal): Promise<string> {
@@ -164,6 +167,7 @@ export async function streamChat(opts: {
       const parsed = parseSseChunk(finished ? buffer + "\n\n" : buffer);
       buffer = parsed.rest;
       for (const e of parsed.events) {
+        if (e.error) throw new Error(e.error);
         if (e.errorCode || e.errorMessage) throw new Error(e.errorMessage ?? e.errorCode);
         opts.onEvent(e);
       }

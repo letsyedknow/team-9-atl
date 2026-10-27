@@ -57,3 +57,18 @@ describe("collectReferences", () => {
     expect(refs.countyFips.sort()).toEqual(["13051", "13127"]);
   });
 });
+
+describe("collectLiveChecks (T078)", () => {
+  it("finds nested live_check objects and ignores invalid statuses", async () => {
+    const { collectLiveChecks } = await import("../../src/lib/grounding");
+    const found = collectLiveChecks({
+      a: { live_check: { shelter_id: "M1", status: "renamed", place_id: "p1" } },
+      b: [{ live_check: { shelter_id: 7, status: "closed" } }],
+      c: { live_check: { shelter_id: "X", status: "gone" } },
+    });
+    expect(found).toEqual([
+      { shelter_id: "M1", status: "renamed", place_id: "p1" },
+      { shelter_id: "7", status: "closed" },
+    ]);
+  });
+});

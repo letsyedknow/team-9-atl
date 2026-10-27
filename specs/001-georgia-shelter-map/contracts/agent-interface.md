@@ -67,7 +67,24 @@ in rank order).
 | `content.parts[].functionResponse.response` | Any `shelter_id` or `county_fips` values found, recursively, go into `referenced_*` and are highlighted (FR-014) |
 | `groundingMetadata.groundingChunks[].maps` `{uri, title, placeId}` | Sources (FR-012). `placeId` is held in memory only |
 | `groundingMetadata.groundingSupports[]` `{segment{startIndex?, endIndex, text}, groundingChunkIndices[]}` | Marks spans as live (FR-013). A null `startIndex` is treated as 0 |
-| `errorCode` / `errorMessage` | Shows the failed state with Retry (FR-015) |
+| `content.parts[].functionResponse.response.live_check` `{shelter_id, status, place_id, checked_at}` | From the `record_live_check` tool. `status` is `exists`, `renamed`, `closed` or `unknown`. The frontend keeps only `status`, `place_id` and the time, and marks `renamed`/`closed` shelters on the map |
+| `error` / `error_details` | ADK `/run_sse` mid-stream failure (verified in ADK 2.13). Shows the failed state with Retry (FR-015) |
+| `errorCode` / `errorMessage` | Model-side error on an event. Shows the failed state with Retry (FR-015) |
+
+**Tools whose results the frontend reads** (`agent/readiness_agent/evacuation_tools.py`). Every
+result carries a `source` naming its dataset and table (Constitution III):
+
+| Tool | Result | Used for |
+|---|---|---|
+| `assess_shelter_accessibility(state, county, county_fips, limit)` | `{shelters: shelter_record[], wheelchair: {yes,no,unrecorded}, source}` | Highlighting (`shelter_id`, `county_fips`) |
+| `get_shelters(shelter_ids)` | `{shelters: shelter_record[], source}`, in the order given, at most 25 | The `CONTEXT v1` `shelter_id`, scenario `receiving_top` and `affected_shelter_ids` |
+| `find_vulnerable_tracts(state, county, county_fips, limit)` | `{tracts: [...], source}` | Highlighting (`county_fips`) |
+| `find_power_dependent_counties(state, county, county_fips, limit)` | `{counties: [...], source}` | Highlighting (`county_fips`). County-level only |
+| `build_readiness_brief(state, county, county_fips, …)` | `{vulnerable_tracts, shelters_to_verify, medical_dependency, sources, could_not_tell}` | Highlighting, counted "what we could not tell you" |
+| `record_live_check(shelter_id, status, place_id)` | `{live_check: {...}}` | The discrepancy marker (spec edge case, FR-008) |
+
+`shelter_record` is the same shape as a map-data `Shelter` (`agent/readiness_agent/map_data.py`),
+with flags as `YES`/`NO`/`UNRECORDED`.
 
 **What this feature requires of the readiness agent (dependencies D1 and D2):**
 

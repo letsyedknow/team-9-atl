@@ -1,5 +1,5 @@
 // Live vs registry segmentation of an answer, from Gemini grounding metadata (research R8).
-import type { AnswerSegment, GroundingMetadata, GroundingSource } from "./types";
+import type { AnswerSegment, GroundingMetadata, GroundingSource, LiveCheckReport, LiveCheckStatus } from "./types";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -76,4 +76,33 @@ export function collectReferences(obj: unknown): { shelterIds: string[]; countyF
   };
   walk(obj);
   return { shelterIds: [...shelterIds], countyFips: [...countyFips] };
+}
+
+const LIVE_STATUSES: readonly LiveCheckStatus[] = ["exists", "renamed", "closed", "unknown"];
+
+/** Finds record_live_check results ({live_check: {...}}) anywhere in a tool result. */
+export function collectLiveChecks(obj: unknown): LiveCheckReport[] {
+  const out: LiveCheckReport[] = [];
+  const walk = (v: unknown) => {
+    if (Array.isArray(v)) v.forEach(walk);
+    else if (v && typeof v === "object") {
+      for (const [k, val] of Object.entries(v)) {
+        if (k === "live_check" && val && typeof val === "object") {
+          const lc = val as { shelter_id?: unknown; status?: unknown; place_id?: unknown };
+          if (
+            (typeof lc.shelter_id === "string" || typeof lc.shelter_id === "number") &&
+            LIVE_STATUSES.includes(lc.status as LiveCheckStatus)
+          ) {
+            out.push({
+              shelter_id: String(lc.shelter_id),
+              status: lc.status as LiveCheckStatus,
+              ...(typeof lc.place_id === "string" ? { place_id: lc.place_id } : {}),
+            });
+          }
+        } else walk(val);
+      }
+    }
+  };
+  walk(obj);
+  return out;
 }

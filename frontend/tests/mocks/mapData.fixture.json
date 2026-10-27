@@ -221,12 +221,12 @@
    "shelter_count": 0,
    "capacity_total": {
     "value": 0.0,
-    "source": "FEMA NSS registry \u00b7 shelters",
+    "source": "FEMA NSS registry \u00b7 shelters_clean",
     "kind": "registry"
    },
    "capacity_total_incl_suspect": {
     "value": 0.0,
-    "source": "FEMA NSS registry \u00b7 shelters",
+    "source": "FEMA NSS registry \u00b7 shelters_clean",
     "kind": "registry"
    },
    "capacity_excluded": [],
@@ -252,19 +252,19 @@
    },
    "households_no_vehicle": {
     "value": 120.0,
-    "source": "ACS 5-yr \u00b7 vulnerability_tracts",
+    "source": "ACS 5-yr \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    },
    "share_65_plus": {
     "value": 0.15,
-    "source": "ACS 5-yr \u00b7 vulnerability_tracts",
+    "source": "ACS 5-yr \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    },
    "share_disability": {
     "value": 0.142,
-    "source": "ACS survey estimate via CDC SVI \u00b7 vulnerability_tracts",
+    "source": "ACS survey estimate via CDC SVI \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    }
@@ -275,12 +275,12 @@
    "shelter_count": 1,
    "capacity_total": {
     "value": 1500.0,
-    "source": "FEMA NSS registry \u00b7 shelters",
+    "source": "FEMA NSS registry \u00b7 shelters_clean",
     "kind": "registry"
    },
    "capacity_total_incl_suspect": {
     "value": 1500.0,
-    "source": "FEMA NSS registry \u00b7 shelters",
+    "source": "FEMA NSS registry \u00b7 shelters_clean",
     "kind": "registry"
    },
    "capacity_excluded": [],
@@ -306,19 +306,19 @@
    },
    "households_no_vehicle": {
     "value": 120.0,
-    "source": "ACS 5-yr \u00b7 vulnerability_tracts",
+    "source": "ACS 5-yr \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    },
    "share_65_plus": {
     "value": 0.15,
-    "source": "ACS 5-yr \u00b7 vulnerability_tracts",
+    "source": "ACS 5-yr \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    },
    "share_disability": {
     "value": 0.142,
-    "source": "ACS survey estimate via CDC SVI \u00b7 vulnerability_tracts",
+    "source": "ACS survey estimate via CDC SVI \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    }
@@ -329,12 +329,12 @@
    "shelter_count": 2,
    "capacity_total": {
     "value": 1500.0,
-    "source": "FEMA NSS registry \u00b7 shelters",
+    "source": "FEMA NSS registry \u00b7 shelters_clean",
     "kind": "registry"
    },
    "capacity_total_incl_suspect": {
     "value": 1500.0,
-    "source": "FEMA NSS registry \u00b7 shelters",
+    "source": "FEMA NSS registry \u00b7 shelters_clean",
     "kind": "registry"
    },
    "capacity_excluded": [],
@@ -360,19 +360,19 @@
    },
    "households_no_vehicle": {
     "value": 120.0,
-    "source": "ACS 5-yr \u00b7 vulnerability_tracts",
+    "source": "ACS 5-yr \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    },
    "share_65_plus": {
     "value": 0.15,
-    "source": "ACS 5-yr \u00b7 vulnerability_tracts",
+    "source": "ACS 5-yr \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    },
    "share_disability": {
     "value": 0.142,
-    "source": "ACS survey estimate via CDC SVI \u00b7 vulnerability_tracts",
+    "source": "ACS survey estimate via CDC SVI \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    }
@@ -383,12 +383,12 @@
    "shelter_count": 1,
    "capacity_total": {
     "value": 800.0,
-    "source": "FEMA NSS registry \u00b7 shelters",
+    "source": "FEMA NSS registry \u00b7 shelters_clean",
     "kind": "registry"
    },
    "capacity_total_incl_suspect": {
     "value": 800.0,
-    "source": "FEMA NSS registry \u00b7 shelters",
+    "source": "FEMA NSS registry \u00b7 shelters_clean",
     "kind": "registry"
    },
    "capacity_excluded": [],
@@ -414,19 +414,19 @@
    },
    "households_no_vehicle": {
     "value": 120.0,
-    "source": "ACS 5-yr \u00b7 vulnerability_tracts",
+    "source": "ACS 5-yr \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    },
    "share_65_plus": {
     "value": 0.15,
-    "source": "ACS 5-yr \u00b7 vulnerability_tracts",
+    "source": "ACS 5-yr \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    },
    "share_disability": {
     "value": 0.142,
-    "source": "ACS survey estimate via CDC SVI \u00b7 vulnerability_tracts",
+    "source": "ACS survey estimate via CDC SVI \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    }
@@ -437,12 +437,12 @@
    "shelter_count": 2,
    "capacity_total": {
     "value": 900.0,
-    "source": "FEMA NSS registry \u00b7 shelters",
+    "source": "FEMA NSS registry \u00b7 shelters_clean",
     "kind": "registry"
    },
    "capacity_total_incl_suspect": {
     "value": 900.0,
-    "source": "FEMA NSS registry \u00b7 shelters",
+    "source": "FEMA NSS registry \u00b7 shelters_clean",
     "kind": "registry"
    },
    "capacity_excluded": [],
@@ -468,19 +468,19 @@
    },
    "households_no_vehicle": {
     "value": 200.0,
-    "source": "ACS 5-yr \u00b7 vulnerability_tracts",
+    "source": "ACS 5-yr \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "2 of 2 tracts"
    },
    "share_65_plus": {
     "value": 0.18333333333333332,
-    "source": "ACS 5-yr \u00b7 vulnerability_tracts",
+    "source": "ACS 5-yr \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "2 of 2 tracts"
    },
    "share_disability": {
     "value": 0.142,
-    "source": "ACS survey estimate via CDC SVI \u00b7 vulnerability_tracts",
+    "source": "ACS survey estimate via CDC SVI \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 2 tracts"
    }
@@ -491,12 +491,12 @@
    "shelter_count": 3,
    "capacity_total": {
     "value": 600.0,
-    "source": "FEMA NSS registry \u00b7 shelters",
+    "source": "FEMA NSS registry \u00b7 shelters_clean",
     "kind": "registry"
    },
    "capacity_total_incl_suspect": {
     "value": 495847.0,
-    "source": "FEMA NSS registry \u00b7 shelters",
+    "source": "FEMA NSS registry \u00b7 shelters_clean",
     "kind": "registry"
    },
    "capacity_excluded": [
@@ -531,19 +531,19 @@
    },
    "households_no_vehicle": {
     "value": 120.0,
-    "source": "ACS 5-yr \u00b7 vulnerability_tracts",
+    "source": "ACS 5-yr \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    },
    "share_65_plus": {
     "value": 0.15,
-    "source": "ACS 5-yr \u00b7 vulnerability_tracts",
+    "source": "ACS 5-yr \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    },
    "share_disability": {
     "value": 0.142,
-    "source": "ACS survey estimate via CDC SVI \u00b7 vulnerability_tracts",
+    "source": "ACS survey estimate via CDC SVI \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    }
@@ -554,12 +554,12 @@
    "shelter_count": 1,
    "capacity_total": {
     "value": 700.0,
-    "source": "FEMA NSS registry \u00b7 shelters",
+    "source": "FEMA NSS registry \u00b7 shelters_clean",
     "kind": "registry"
    },
    "capacity_total_incl_suspect": {
     "value": 700.0,
-    "source": "FEMA NSS registry \u00b7 shelters",
+    "source": "FEMA NSS registry \u00b7 shelters_clean",
     "kind": "registry"
    },
    "capacity_excluded": [],
@@ -585,19 +585,19 @@
    },
    "households_no_vehicle": {
     "value": 120.0,
-    "source": "ACS 5-yr \u00b7 vulnerability_tracts",
+    "source": "ACS 5-yr \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    },
    "share_65_plus": {
     "value": 0.15,
-    "source": "ACS 5-yr \u00b7 vulnerability_tracts",
+    "source": "ACS 5-yr \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    },
    "share_disability": {
     "value": 0.142,
-    "source": "ACS survey estimate via CDC SVI \u00b7 vulnerability_tracts",
+    "source": "ACS survey estimate via CDC SVI \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    }
@@ -608,12 +608,12 @@
    "shelter_count": 1,
    "capacity_total": {
     "value": 350.0,
-    "source": "FEMA NSS registry \u00b7 shelters",
+    "source": "FEMA NSS registry \u00b7 shelters_clean",
     "kind": "registry"
    },
    "capacity_total_incl_suspect": {
     "value": 350.0,
-    "source": "FEMA NSS registry \u00b7 shelters",
+    "source": "FEMA NSS registry \u00b7 shelters_clean",
     "kind": "registry"
    },
    "capacity_excluded": [],
@@ -639,19 +639,19 @@
    },
    "households_no_vehicle": {
     "value": 120.0,
-    "source": "ACS 5-yr \u00b7 vulnerability_tracts",
+    "source": "ACS 5-yr \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    },
    "share_65_plus": {
     "value": 0.15,
-    "source": "ACS 5-yr \u00b7 vulnerability_tracts",
+    "source": "ACS 5-yr \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    },
    "share_disability": {
     "value": 0.142,
-    "source": "ACS survey estimate via CDC SVI \u00b7 vulnerability_tracts",
+    "source": "ACS survey estimate via CDC SVI \u00b7 vulnerability_tracts_clean",
     "kind": "survey",
     "coverage": "1 of 1 tracts"
    }

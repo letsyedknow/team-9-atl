@@ -18,6 +18,7 @@ gcloud run deploy "${SERVICE}" \
   --image "${IMAGE}" \
   --service-account "${RUNTIME_SA}" \
   --set-env-vars "GOOGLE_GENAI_USE_VERTEXAI=TRUE,GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=global,EVAC_DATASET=evac_prod,MODEL_NAME=gemini-3-flash-preview" \
+  --set-secrets "ROUTES_API_KEY=routes-api-key:latest" \
   --memory 1Gi \
   --cpu 1 \
   --timeout 300 \

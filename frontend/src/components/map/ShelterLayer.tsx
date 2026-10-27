@@ -55,6 +55,15 @@ export default function ShelterLayer() {
                 !
               </text>
             )}
+            {/* Maps says renamed or closed: the registry record stays on the map, unedited (FR-008). */}
+            {(() => {
+              const st = state.liveChecks.get(s.shelter_id)?.status;
+              return st === "renamed" || st === "closed" ? (
+                <text x={x - r - 7} y={y - r} className="shelter-discrepancy" data-testid={`discrepancy-${s.shelter_id}`}>
+                  ?
+                </text>
+              ) : null;
+            })()}
           </g>
         );
       })}
