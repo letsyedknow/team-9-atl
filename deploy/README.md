@@ -31,6 +31,8 @@ Needs Docker and an account that can push to Artifact Registry and deploy to Clo
 See `agent/README.md`.
 ```
 
+Routes API: Cloud Run gets `ROUTES_API_KEY` from Secret Manager secret `routes-api-key`, a key restricted to `routes.googleapis.com`. Send it as `X-Goog-Api-Key`. Drive times are fetched live and never stored.
+
 Runtime settings (both `.env` and Cloud Run): `GOOGLE_GENAI_USE_VERTEXAI=TRUE`, `GOOGLE_CLOUD_LOCATION=global` (Gemini 3 models are served from `global`), `MODEL_NAME=gemini-3-flash-preview`, `EVAC_DATASET=evac_prod`.
 
 ## Data
