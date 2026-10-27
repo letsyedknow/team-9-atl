@@ -10,7 +10,7 @@ POOL_ID="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${WIF
 
 gcloud services enable --project "${PROJECT_ID}" \
   run.googleapis.com artifactregistry.googleapis.com aiplatform.googleapis.com \
-  bigquery.googleapis.com iamcredentials.googleapis.com sts.googleapis.com \
+  bigquery.googleapis.com places.googleapis.com iamcredentials.googleapis.com sts.googleapis.com \
   secretmanager.googleapis.com routes.googleapis.com
 
 gcloud artifacts repositories describe "${AR_REPO}" --project "${PROJECT_ID}" --location "${REGION}" >/dev/null 2>&1 ||
@@ -28,6 +28,10 @@ for role in roles/bigquery.dataViewer roles/bigquery.jobUser roles/aiplatform.us
 done
 
 gcloud secrets add-iam-policy-binding routes-api-key --project "${PROJECT_ID}" \
+  --member "serviceAccount:${RUNTIME_SA}" --role roles/secretmanager.secretAccessor --quiet >/dev/null
+gcloud secrets describe maps-places-api-key --project "${PROJECT_ID}" >/dev/null 2>&1 ||
+  gcloud secrets create maps-places-api-key --project "${PROJECT_ID}" --replication-policy automatic
+gcloud secrets add-iam-policy-binding maps-places-api-key --project "${PROJECT_ID}" \
   --member "serviceAccount:${RUNTIME_SA}" --role roles/secretmanager.secretAccessor --quiet >/dev/null
 
 gcloud projects add-iam-policy-binding "${PROJECT_ID}" --member "serviceAccount:${DEPLOY_SA}" \

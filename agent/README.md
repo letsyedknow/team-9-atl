@@ -13,6 +13,41 @@ Everything reads dataset `evac_prod` (`EVAC_DATASET`). The runtime identity need
 `roles/mcp.toolUser`, `roles/bigquery.jobUser`, `roles/bigquery.dataViewer` and `roles/aiplatform.user`;
 `deploy/setup_gcp.sh` grants them to the Cloud Run service account. Deployment: `deploy/README.md`.
 
+## Live Google Maps shelter checks
+
+`check_shelter_google_maps(shelter_id)` reads the shelter's `latitude` and
+`longitude` from the configured `shelters_clean` table, then calls the Places
+API (New) Text Search with the shelter name, address and a 250 m location bias.
+It returns nearby candidate listings, sorted by distance, with each candidate's
+`business_status` (`OPERATIONAL`, `CLOSED_TEMPORARILY`,
+`CLOSED_PERMANENTLY`, or `UNKNOWN`) and `opening_hours_status` (`open_now`,
+`closed_now`, or `not_available`), plus the Google Maps link and check time.
+The tool does not assume the closest listing is a match: compare its name,
+address and distance with the registry record, and report unknown if the match
+is ambiguous.
+
+To enable it:
+
+1. Enable **Places API (New)** in the Google Cloud project and create an API key
+   restricted to Places API. The project must have billing enabled for Places
+   requests.
+2. For local development, set `GOOGLE_MAPS_API_KEY` in the ignored `agent/.env`
+   file (see `.env.example`). Never commit the key.
+3. For Cloud Run, `deploy/setup_gcp.sh` enables Places API, creates the
+   `maps-places-api-key` Secret Manager secret if needed, and grants the runtime
+   service account access. Add the restricted key as a secret version before
+   deploying; `deploy/deploy.sh` exposes it to the process as
+   `GOOGLE_MAPS_API_KEY`.
+
+The Places response is fetched on every tool call and is not cached or saved.
+`open_now` means only that the Google Maps business listing says it is open at
+the time of the request. It does **not** mean the shelter is accepting evacuees,
+has available beds, or will be open during a storm. Missing opening hours are
+`not_available`, not closed. A live answer should identify its specific
+candidate and include Google Maps attribution immediately after the statement;
+the existing Grounding with Google Maps tool provides source metadata for the UI.
+Only the selected `place_id` is retained in a `record_live_check` result.
+
 ## Running it locally
 
 ```bash
