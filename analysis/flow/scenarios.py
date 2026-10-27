@@ -185,7 +185,7 @@ def origin_rows(state, counties):
                    SUM(total_pop * lon) / SUM(total_pop) AS lon, SUM(total_pop * lat) / SUM(total_pop) AS lat
             FROM {table(state, 'vulnerability_tracts')} WHERE county_fips IN ({fips}) GROUP BY 1
         )
-        SELECT t.*, p.power_dependent_dme
+        SELECT t.*, 1 - t.carless_people / t.pop AS car_share, p.power_dependent_dme
         FROM t JOIN {table(state, 'power_dependent_counties')} p ON p.fips_code = t.county_fips
         ORDER BY t.county_fips
     """).df()
@@ -238,21 +238,26 @@ for key, sc in SCENARIOS.items():
 
     for lvl in LEVELS:
         ev, su, csu = EVACUATION_RATE[lvl], SHELTER_USE[lvl], CARLESS_SHELTER_USE[lvl]
-        leave = into_ga = seekers = pd_into = old_into = carless_into = 0.0
+        leave = into_ga = seekers = pd_into = old_into = carless_into = carless_stay = 0.0
         for st, df in origin_frames.items():
-            share = sc["origins"][st]["to_ga"][lvl]
+            k = ev * sc["origins"][st]["to_ga"][lvl]
             pop, carless = total(df, "pop"), total(df, "carless_people")
             leave += pop * ev
-            into_ga += pop * ev * share
-            old_into += total(df, "pop_65_plus") * ev * share
-            pd_into += total(df, "power_dependent_dme") * ev * share
             if st == "GA":
-                # Carless Georgians reach inland hosts only on public transport, and mostly need a shelter.
-                seekers += (pop - carless) * ev * share * su + carless * ev * share * csu
-                carless_into += carless * ev * share
+                # Carless Georgians reach inland hosts on public transport, and mostly need a shelter.
+                into_ga += pop * k
+                old_into += total(df, "pop_65_plus") * k
+                pd_into += total(df, "power_dependent_dme") * k
+                seekers += (pop - carless) * k * su + carless * k * csu
+                carless_into += carless * k
             else:
-                # Carless out-of-state residents are assumed not to arrive in Georgia.
-                seekers += (pop - carless) * ev * share * su
+                # Carless out-of-state residents are assumed not to arrive in Georgia; 65+ and
+                # power-dependent residents are assumed carless at their county's average rate.
+                into_ga += (pop - carless) * k
+                old_into += total(df, "pop_65_plus", "car_share") * k
+                pd_into += total(df, "power_dependent_dme", "car_share") * k
+                seekers += (pop - carless) * k * su
+                carless_stay += carless * k
 
         remaining, first_full, filled, reached = seekers, None, 0, None
         for i, h in enumerate(hosts):
@@ -277,6 +282,7 @@ for key, sc in SCENARIOS.items():
             "people_leaving_origin": round(leave), "people_into_ga_hosts": round(into_ga),
             "pop_65_plus_into_ga": round(old_into), "power_dependent_into_ga": round(pd_into),
             "carless_georgians_needing_transport": round(carless_into),
+            "carless_out_of_state_not_arriving": round(carless_stay),
             "shelter_seekers": round(seekers),
             "route_host_counties": len(hosts), "route_general_capacity": route_capacity,
             "route_medical_seats": route_medical, "route_medical_seats_by_county": medical_counties,

@@ -81,7 +81,11 @@ Further assumptions:
 
 - **Carless households.** People in carless households are `households_no_vehicle` × tract
   household size. Carless Georgians are assumed to reach inland hosts on public transport. Carless
-  out-of-state residents are assumed not to arrive in Georgia.
+  out-of-state residents are assumed not to arrive in Georgia, and they are left out of every
+  arrival count (`carless_out_of_state_not_arriving`; 9,914 in (b) base). Out-of-state 65+ and
+  power-dependent arrivals are scaled by their county's car-owning share, on the assumption that
+  they are carless at the county's average rate. Hypothesis: the real rate for older and disabled residents is
+  likely higher, so these arrival counts lean high.
 - **Host order.** Evacuees fill host counties nearest-first. The order is each county's
   capacity-weighted straight-line distance from the entry point. This tests the hosts closest to the
   threat; it is not a forecast of where people go.
@@ -100,15 +104,15 @@ Further assumptions:
 | | high | 244,437 | 34,201 | 162,967 | 21.0% | 14 | Long | 117 km | 1,964 | 2,415 | 0.81 |
 | (a′) wider exclusion | base | 142,588 | 11,398 | 150,737 | 7.6% | 3 | Evans | 98 km | 1,146 | 2,415 | 0.47 |
 | | high | 244,437 | 34,201 | 150,737 | 22.7% | 10 | Evans | 128 km | 1,964 | 2,415 | 0.81 |
-| (b) NE Florida + GA coast | low | 121,290 | 3,575 | 162,967 | 2.2% | 2 | Charlton | 105 km | 1,061 | 2,415 | 0.44 |
-| | base | 314,416 | 19,494 | 162,967 | 12.0% | 7 | Charlton | 138 km | 2,791 | 2,415 | **1.16** |
-| | high | 595,107 | 67,245 | 162,967 | 41.3% | 28 | Charlton | 214 km | 5,321 | 2,415 | **2.20** |
-| (c) FL west coast | low | 41,225 | 777 | 194,181 | 0.4% | 0 | none | 23 km | 410 | 1,398 | 0.29 |
-| | base | 216,430 | 10,200 | 194,181 | 5.3% | 3 | Lowndes | 97 km | 2,155 | 1,398 | **1.54** |
-| | high | 618,372 | 58,288 | 194,181 | 30.0% | 11 | Lowndes | 303 km | 6,157 | 1,398 | **4.40** |
-| (d) Carolinas | low | 8,725 | 166 | 143,703 | 0.1% | 0 | none | 7 km | 77 | 504 | 0.15 |
-| | base | 40,718 | 1,935 | 143,703 | 1.3% | 0 | none | 7 km | 358 | 504 | 0.71 |
-| | high | 109,065 | 10,364 | 143,703 | 7.2% | 0 | none | 7 km | 959 | 504 | **1.90** |
+| (b) NE Florida + GA coast | low | 118,053 | 3,575 | 162,967 | 2.2% | 2 | Charlton | 105 km | 1,031 | 2,415 | 0.43 |
+| | base | 304,503 | 19,494 | 162,967 | 12.0% | 7 | Charlton | 138 km | 2,701 | 2,415 | **1.12** |
+| | high | 574,875 | 67,245 | 162,967 | 41.3% | 28 | Charlton | 214 km | 5,138 | 2,415 | **2.13** |
+| (c) FL west coast | low | 38,859 | 777 | 194,181 | 0.4% | 0 | none | 23 km | 388 | 1,398 | 0.28 |
+| | base | 204,008 | 10,200 | 194,181 | 5.3% | 3 | Lowndes | 97 km | 2,035 | 1,398 | **1.46** |
+| | high | 582,880 | 58,288 | 194,181 | 30.0% | 11 | Lowndes | 303 km | 5,813 | 1,398 | **4.16** |
+| (d) Carolinas | low | 8,291 | 166 | 143,703 | 0.1% | 0 | none | 7 km | 73 | 504 | 0.14 |
+| | base | 38,691 | 1,935 | 143,703 | 1.3% | 0 | none | 7 km | 340 | 504 | 0.68 |
+| | high | 103,635 | 10,364 | 143,703 | 7.2% | 0 | none | 7 km | 912 | 504 | **1.81** |
 
 No scenario exhausts its route's general seats, even at high (`unplaced_seekers` = 0 everywhere).
 
@@ -130,13 +134,13 @@ from the entry point):
 
 1. **General seats hold. Medical seats do not.** Even the high scenarios load the route's general
    seats at 41% or less. In (b) and (c), power-dependent arrivals exceed the medical-needs seats on
-   the route from the base scenario up. (c) puts 2,155 power-dependent Floridians (base) on a route
+   the route from the base scenario up. (c) puts 2,035 power-dependent Floridians (base) on a route
    whose only medical shelter is in Cobb, 391 km past the Florida line.
 2. **The pressure lands on small counties at the door.** Every first-full county is small and close
    to the threat: Long, Charlton, Lowndes. A planner's August question is about those few counties
    and the medical shelters at Metter and Statesboro. It is not about statewide totals.
 3. **Scenario (b) is the double hit.** Jacksonville evacuees and the Georgia coast compete for the
-   same southeast Georgia hosts and the same four medical counties (2.2 power-dependent per seat at
+   same southeast Georgia hosts and the same four medical counties (2.1 power-dependent per seat at
    high).
 
 ## Limits
