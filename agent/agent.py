@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 from evacuation_tools import (
     assess_shelter_accessibility,
     build_readiness_brief,
+    find_power_dependent_counties,
     find_vulnerable_tracts,
     function_tool,
 )
@@ -33,6 +34,7 @@ def create_agent() -> "LlmAgent":
         google_maps_grounding,
         function_tool(find_vulnerable_tracts),
         function_tool(assess_shelter_accessibility),
+        function_tool(find_power_dependent_counties),
         function_tool(build_readiness_brief),
     ]
 
