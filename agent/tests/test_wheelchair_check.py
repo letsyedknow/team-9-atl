@@ -25,7 +25,7 @@ def test_batch_is_capped_and_one_failure_does_not_sink_it():
 
     def generate_content(model, contents, config):
         calls.append(contents)
-        if "Shelter 3" in contents:
+        if "Shelter 1" in contents:
             raise RuntimeError("quota")
         return SimpleNamespace(text="PLACE: same\nWHEELCHAIR: unknown\nEVIDENCE: none", candidates=[])
 
@@ -33,5 +33,5 @@ def test_batch_is_capped_and_one_failure_does_not_sink_it():
     shelters = [{"shelter_id": str(i), "name": f"Shelter {i}", "address": "x"} for i in range(15)]
     out = check_wheelchair(shelters, client=client)
     assert len(out) == len(calls) == MAX_SHELTERS
-    assert out[3]["status"] == "error"
+    assert out[1]["status"] == "error"
     assert out[0]["status"] == "not_found"  # no Maps source, so no claim
