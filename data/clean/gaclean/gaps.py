@@ -84,14 +84,15 @@ def measure(nums: dict) -> list[dict]:
          "size": {"tracts_in_nri_coastal_flood_layer": h["coastal_flood_exposed"]},
          "affects": "which facilities and tracts flood in a given storm",
          "fill": "external_source",
-         "detail": "NRI coastal flood is an annualised composite. NOAA NHC SLOSH MOM rasters (public domain, 1.65 GB) "
-                   "are documented in extdata/slosh, not clipped."},
+         "detail": "NRI coastal flood is an annualised composite. NOAA NHC SLOSH MOM rasters (public domain) are "
+                   "documented in extdata/slosh, not clipped."},
         {"id": "tracts_without_hazard_row", "table": "hazard_tracts", "gap": "2020 tracts with no NRI hazard row",
-         "size": {"tracts": h["vulnerability_tracts_without_hazard_row"], "population": 0},
-         "affects": "nothing: all have population 0 (water tracts)",
+         "size": {"tracts": h["vulnerability_tracts_without_hazard_row"],
+                  "population": h["vulnerability_tracts_without_hazard_row_population"]},
+         "affects": "nothing while population is 0 (water tracts)",
          "fill": "never_filled", "detail": "Asserted at build: the build fails if any populated tract lacks a row."},
         {"id": "evacuation_route_geometry", "table": None, "gap": "Official evacuation route geometry",
-         "size": {"gdot_segments_not_shipped": 110},
+         "size": {},
          "affects": "which roads evacuees use",
          "fill": "external_source",
          "detail": "Licence gap: the GDOT layer states no licence and is not shipped. Analyses use Census TIGER/Line "
@@ -113,7 +114,7 @@ def write_gaps(nums: dict, root: Path = ROOT) -> list[dict]:
              "| Table | Gap | Size | Affects | Fill | State | How |", "|---|---|---|---|---|---|---|"]
     for g in gaps:
         size = "; ".join(f"{k.replace('_', ' ')} {v:,.1f}".replace(".0 ", " ").removesuffix(".0")
-                         if isinstance(v, float) else f"{k.replace('_', ' ')} {v:,}" for k, v in g["size"].items())
+                         if isinstance(v, float) else f"{k.replace('_', ' ')} {v:,}" for k, v in g["size"].items()) or "n/a"
         lines.append(f"| {g['table'] or 'n/a'} | {g['gap']} | {size} | {g['affects']} | `{g['fill']}` | "
                      f"{g['fill_status']} | {g['detail']} |")
     (root / "GAPS.md").write_text("\n".join(lines) + "\n")

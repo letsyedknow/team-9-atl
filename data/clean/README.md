@@ -25,11 +25,13 @@ Inputs and licences are in [SOURCES.md](SOURCES.md). The build stops with a list
 | `gaps.json` | | | the gap register behind `GAPS.md` |
 
 The leading columns were read from the BigQuery schemas with `bq show --schema` and hold the
-snapshot values unchanged, one row per source row. Cleaned or added values follow, each with a
-`_status` column and a `_rule` column.
+snapshot values unchanged, one row per source row. Every cleaned or added column follows with its own
+`<column>_status` and `<column>_rule`; the build fails if one is missing. The exceptions are grouped:
+`<field>_live_low` shares `<field>_live_status`, and dialysis `latitude`, `longitude` and
+`coordinates_confidence` share `coordinates_status`.
 
 Status values: `recorded` (the source has a value), `unrecorded` (the source has none),
-`imputed` (derived by a stated rule), `assumption` (depends on an input not yet settled),
+`imputed` (filled or assigned by a stated rule; a plain calculation on recorded inputs stays `recorded`), `assumption` (depends on an input not yet settled),
 `suspect` (kept but contradicted by a better source), `external` (from a gap-fill source).
 
 ## Decisions

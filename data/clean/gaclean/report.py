@@ -20,7 +20,7 @@ def _fmt(v) -> str:
 
 
 def checks(con) -> dict[str, list[tuple]]:
-    h = _q(con, """SELECT COUNT(*) FILTER (WHERE cfld_status = 'imputed'), MIN(HRCN_EALP), MAX(HRCN_EALP),
+    h = _q(con, """SELECT COUNT(*) FILTER (WHERE cfld_expp_clean_status = 'imputed'), MIN(HRCN_EALP), MAX(HRCN_EALP),
                           COUNT(*), (SELECT geo_id FROM hazard_tracts ORDER BY HRCN_EALP DESC, geo_id LIMIT 1)
                    FROM hazard_tracts""")
     p = _q(con, """SELECT COUNT(*), SUM(power_dependent_dme), SUM(power_dependent_live),
@@ -56,7 +56,7 @@ def checks(con) -> dict[str, list[tuple]]:
     return {
         "hazard_tracts": [
             ("source columns", h[3], "11 NRI columns as published", "unchanged, in the BigQuery `hazard_tracts_clean` order"),
-            ("cfld_null_outside_layer", h[0], "`CFLD_EXPP` NULL", "`cfld_expp_clean` = 0, `cfld_status` = imputed"),
+            ("cfld_null_outside_layer", h[0], "`CFLD_EXPP` NULL", "`cfld_expp_clean` = 0, `cfld_expp_clean_status` = imputed"),
             ("hrcn_ealp_percentile", h[3], f"`HRCN_EALP` {h[1]:.3g} to {h[2]:.3g}",
              f"`hrcn_ealp_pctile` 0 to 1 (top: {h[4]})"),
             ("fips_from_geo_id", h[3], "no county column", "`county_fips` = left(geo_id, 5)"),

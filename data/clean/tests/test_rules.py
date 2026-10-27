@@ -70,7 +70,8 @@ def test_hazard_cfld_percentile_and_source_columns_unchanged(con):
     B.build_hazard_tracts(con)
     assert leading(con, "hazard_tracts") == B.BQ_COLUMNS["hazard_tracts"]
     t = {r[0]: r[1:] for r in con.execute(
-        "SELECT geo_id, CFLD_EXPP, cfld_expp_clean, cfld_status, cfld_rule, hrcn_ealp_pctile, county_fips "
+        "SELECT geo_id, CFLD_EXPP, cfld_expp_clean, cfld_expp_clean_status, cfld_expp_clean_rule, hrcn_ealp_pctile, "
+        "county_fips "
         "FROM hazard_tracts").fetchall()}
     assert len(t) == 3
     assert t["13001000100"][:4] == (None, 0, "imputed", "cfld_null_outside_layer")
@@ -131,6 +132,41 @@ def test_dialysis_county_from_zip_and_geocode_confidence(con):
         ("112500", "13003", 18, True, "external", "census_geocoder", "geocoded_census_non_exact", None),
         ("112501", "13001", 12, False, "unrecorded", "coordinates_absent", "unmatched", "X"),
     ]
+
+
+def test_overture_places_keep_licence_and_group(con):
+    table(con, "raw_overture", [f"{c} {'DOUBLE' if c in ('confidence', 'lon', 'lat') else 'VARCHAR'}"
+                                for c in B.SOURCE_COLUMNS["overture_places"]],
+          [["o1", "Pines ALF", "assisted_living_facility", 0.9, "1 Pine", "Town", "30000", -84.0, 33.0, "Foursquare",
+            "Apache-2.0", "open"],
+           ["o2", "Grill", "restaurant", 0.9, "2 Pine", "Town", "30000", -84.0, 33.0, "meta", "CDLA-Permissive-2.0",
+            "open"],
+           ["o3", "Coast EMS", "ambulance_or_ems_service", 0.5, "3 Pine", "Port", "31510", -82.0, 31.0, "meta",
+            "CDLA-Permissive-2.0", None]])
+    B.build_overture_places(con)
+    rows = con.execute("SELECT id, place_group, place_group_status, place_group_rule, source_license, county_fips, "
+                       "county_fips_status FROM overture_places ORDER BY id").fetchall()
+    assert rows == [("o1", "assisted_living", "external", "overture_places", "Apache-2.0", "13001", "imputed"),
+                    ("o3", "ambulance_ems", "external", "overture_places", "CDLA-Permissive-2.0", "13003", "imputed")]
+
+
+def test_every_appended_column_carries_status_and_rule(con):
+    B.build_hazard_tracts(con)
+    B.build_power_dependent_counties(con)
+    B.build_dialysis_centers(con)
+    con.execute("ALTER TABLE hazard_tracts ADD COLUMN extra DOUBLE")
+    assert B.unprovenanced(con, "hazard_tracts") == ["extra"]
+    assert B.unprovenanced(con, "power_dependent_counties") == []
+    assert B.unprovenanced(con, "dialysis_centers") == []
+    statuses = {v for t in ("hazard_tracts", "power_dependent_counties", "dialysis_centers")
+                for (c,) in con.execute(f"SELECT column_name FROM (DESCRIBE {t})").fetchall() if c.endswith("_status")
+                and c not in B.SOURCE_COLUMNS[t]
+                for (v,) in con.execute(f"SELECT DISTINCT {c} FROM {t}").fetchall()}
+    assert statuses <= set(B.R.STATUSES)
+    rules = {v for t in ("hazard_tracts", "power_dependent_counties", "dialysis_centers")
+             for (c,) in con.execute(f"SELECT column_name FROM (DESCRIBE {t})").fetchall() if c.endswith("_rule")
+             for (v,) in con.execute(f"SELECT DISTINCT {c} FROM {t}").fetchall()}
+    assert rules <= set(B.R.RULES)
 
 
 SRC = Sources.from_env()

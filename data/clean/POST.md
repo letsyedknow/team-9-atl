@@ -35,8 +35,8 @@ CREATE OR REPLACE TABLE `qwiklabs-gcp-04-edc952746633.evacuation_readiness.power
 
 Column counts:
 
-- `care_facilities`: 37 columns (10 leading BigQuery columns)
-- `hazard_tracts`: 22 columns (11 leading BigQuery columns)
-- `power_dependent_counties`: 56 columns (20 leading BigQuery columns)
+- `care_facilities`: 61 columns (10 leading BigQuery columns)
+- `hazard_tracts`: 29 columns (11 leading BigQuery columns)
+- `power_dependent_counties`: 61 columns (20 leading BigQuery columns)
 - `dialysis_centers`: 21 columns (0 leading BigQuery columns)
-- `overture_places`: 19 columns (0 leading BigQuery columns)
+- `overture_places`: 21 columns (0 leading BigQuery columns)

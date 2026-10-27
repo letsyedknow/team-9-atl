@@ -23,6 +23,7 @@
     "coastal_flood_exposed": 182,
     "nri_population": 10695030.0,
     "vulnerability_tracts_without_hazard_row": 5,
+    "vulnerability_tracts_without_hazard_row_population": 0.0,
     "without_vulnerability_tract": 0
   },
   "overture_places": {

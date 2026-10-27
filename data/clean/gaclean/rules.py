@@ -18,6 +18,10 @@ RULES = {
     "empower_snapshot_unverified": (
         "Snapshot column facility_esrd_dialysis_any_dme (6,009 statewide) does not match the live service's "
         "dialysis count (18,026); kept as published, marked suspect, never used as dialysis patients."),
+    "cfld_share": "Share of tract population in NRI's coastal-flood layer: cfld_expp_clean / POPULATION, capped at 1.",
+    "coastal_flood_exposed": "True when cfld_expp_clean > 0.",
+    "vulnerability_tract_join": "True when the hazard row's geo_id is in the snapshot vulnerability_tracts table.",
+    "tract_hazard_join": "Hazard value of the facility's nearest tract (hazard_tracts clean columns).",
     "cms_join_ccn": "Joined to CMS Nursing Home Provider Information on CMS Certification Number (CCN).",
     "cms_occupancy": "Occupancy = CMS Average Number of Residents per Day / CMS certified beds (an average, not the daily census).",
     "medical_shelter_distance_pending": (
@@ -28,7 +32,10 @@ RULES = {
         "Coordinates from the US Census Geocoder batch on the CMS address (US Government work); "
         "coordinates_confidence carries the match quality."),
     "coordinates_absent": "CMS publishes no coordinates and the geocoder found no match.",
-    "cms_dialysis_stations": "Dialysis stations summed from CMS Dialysis Facility listing, county from ZIP.",
+    "cms_dialysis_stations": (
+        "Dialysis centers and stations summed from the CMS Dialysis Facility listing, county from ZIP; a county "
+        "with no listed center is 0, status imputed."),
+    "dialysis_patients_per_station": "Live emPOWER dialysis beneficiaries / CMS stations; null where a county has no station.",
     "overture_places": (
         "Overture Maps Places release 2026-10-21.0, per-row licence in source_license (CDLA-Permissive-2.0, "
         "Apache-2.0, CC0-1.0); confidence is Overture's own. A listing, not licensure: no beds, no fleet size."),
@@ -47,6 +54,10 @@ def empower_value(col: str) -> tuple[str, str, str]:
     return (col,
             f"CASE WHEN {col} = 11 THEN 1 ELSE {col} END",
             f"CASE WHEN {col} IS NULL THEN 'unrecorded' WHEN {col} = 11 THEN 'imputed' ELSE 'recorded' END")
+
+
+def tag(expr: str, name: str, status: str, rule: str) -> str:
+    return f"{expr} AS {name}, {status} AS {name}_status, '{rule}' AS {name}_rule"
 
 
 def point(lon: str, lat: str) -> str:

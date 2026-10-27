@@ -35,6 +35,26 @@ OVERTURE_GROUPS = {
 }
 
 
+SOURCE_COLUMNS = {
+    **BQ_COLUMNS,
+    "dialysis_centers": ["ccn", "facility_name", "address", "city", "zip", "cms_county_text", "stations", "late_shift",
+                         "offers_in_center_hemodialysis", "offers_peritoneal", "offers_home_hemodialysis_training",
+                         "profit_status", "chain"],
+    "overture_places": ["id", "name", "category", "confidence", "address", "locality", "postcode", "lon", "lat",
+                        "source_dataset", "source_license", "operating_status"],
+}
+PROVENANCE_GROUPS = {"latitude": "coordinates", "longitude": "coordinates", "coordinates_confidence": "coordinates",
+                     **{f"{name}_live_low": f"{name}_live" for name in EMPOWER_FIELDS}}
+
+
+def unprovenanced(con, table: str) -> list[str]:
+    cols = [r[0] for r in con.execute(f"DESCRIBE {table}").fetchall()]
+    have = set(cols)
+    return [c for c in cols
+            if c not in SOURCE_COLUMNS[table] and not c.endswith(("_status", "_rule"))
+            and not {f"{PROVENANCE_GROUPS.get(c, c)}_status", f"{PROVENANCE_GROUPS.get(c, c)}_rule"} <= have]
+
+
 def lead(table: str, alias: str) -> str:
     return ", ".join(f'{alias}."{c}"' for c in BQ_COLUMNS[table])
 
@@ -78,19 +98,20 @@ def register(con, src: Sources) -> None:
 
 
 def build_hazard_tracts(con) -> None:
+    cfld = "CASE WHEN h.CFLD_EXPP IS NULL THEN 'imputed' ELSE 'recorded' END"
     con.execute(f"""
         CREATE TABLE hazard_tracts AS
         SELECT {lead('hazard_tracts', 'h')},
-               left(h.geo_id, 5) AS county_fips, 'fips_from_geo_id' AS county_fips_rule,
-               PERCENT_RANK() OVER (ORDER BY h.HRCN_EALP) AS hrcn_ealp_pctile,
-               CASE WHEN h.HRCN_EALP IS NULL THEN 'unrecorded' ELSE 'recorded' END AS hrcn_ealp_pctile_status,
-               'hrcn_ealp_percentile' AS hrcn_ealp_pctile_rule,
-               COALESCE(h.CFLD_EXPP, 0) AS cfld_expp_clean,
-               CASE WHEN h.POPULATION > 0 THEN LEAST(COALESCE(h.CFLD_EXPP, 0) / h.POPULATION, 1.0) END AS cfld_share,
-               COALESCE(h.CFLD_EXPP, 0) > 0 AS coastal_flood_exposed,
-               CASE WHEN h.CFLD_EXPP IS NULL THEN 'imputed' ELSE 'recorded' END AS cfld_status,
-               CASE WHEN h.CFLD_EXPP IS NULL THEN 'cfld_null_outside_layer' ELSE 'source_value' END AS cfld_rule,
-               t.geo_id IS NOT NULL AS has_vulnerability_tract
+               {R.tag("left(h.geo_id, 5)", "county_fips", "'recorded'", "fips_from_geo_id")},
+               {R.tag("PERCENT_RANK() OVER (ORDER BY h.HRCN_EALP)", "hrcn_ealp_pctile",
+                      R.recorded_or_unrecorded("h.HRCN_EALP"), "hrcn_ealp_percentile")},
+               COALESCE(h.CFLD_EXPP, 0) AS cfld_expp_clean, {cfld} AS cfld_expp_clean_status,
+               CASE WHEN h.CFLD_EXPP IS NULL THEN 'cfld_null_outside_layer' ELSE 'source_value' END
+                   AS cfld_expp_clean_rule,
+               {R.tag("CASE WHEN h.POPULATION > 0 THEN LEAST(COALESCE(h.CFLD_EXPP, 0) / h.POPULATION, 1.0) END",
+                      "cfld_share", f"CASE WHEN h.POPULATION > 0 THEN {cfld} ELSE 'unrecorded' END", "cfld_share")},
+               {R.tag("COALESCE(h.CFLD_EXPP, 0) > 0", "coastal_flood_exposed", cfld, "coastal_flood_exposed")},
+               {R.tag("t.geo_id IS NOT NULL", "has_vulnerability_tract", "'recorded'", "vulnerability_tract_join")}
         FROM raw_hazard h LEFT JOIN (SELECT geo_id FROM raw_tracts) t USING (geo_id)
         ORDER BY h.geo_id
     """)
@@ -111,6 +132,8 @@ def build_power_dependent_counties(con) -> None:
         live.append(f"{v} AS {name}_live, {lo} AS {name}_live_low, {st} AS {name}_live_status, "
                     f"CASE WHEN l.{col} = 11 THEN 'empower_suppressed_1_11' ELSE 'empower_live_canonical' END "
                     f"AS {name}_live_rule")
+    listed = "CASE WHEN d.fips_code IS NULL THEN 'imputed' ELSE 'recorded' END"
+    dialysis_status = R.empower_value("l.Facility_ESRD_Dialysis_Any_DME")[2]
     con.execute(f"""
         CREATE TABLE power_dependent_counties AS
         WITH d AS (
@@ -124,10 +147,12 @@ def build_power_dependent_counties(con) -> None:
                'suspect' AS facility_esrd_dialysis_any_dme_status,
                'empower_snapshot_unverified' AS facility_esrd_dialysis_any_dme_rule,
                {', '.join(live)},
-               COALESCE(d.dialysis_centers, 0) AS dialysis_centers,
-               COALESCE(d.dialysis_stations, 0) AS dialysis_stations,
-               'cms_dialysis_stations' AS dialysis_stations_rule,
-               l.Facility_ESRD_Dialysis_Any_DME / NULLIF(d.dialysis_stations, 0) AS dialysis_patients_per_station
+               {R.tag("COALESCE(d.dialysis_centers, 0)", "dialysis_centers", listed, "cms_dialysis_stations")},
+               {R.tag("COALESCE(d.dialysis_stations, 0)", "dialysis_stations", listed, "cms_dialysis_stations")},
+               {R.tag("l.Facility_ESRD_Dialysis_Any_DME / NULLIF(d.dialysis_stations, 0)",
+                      "dialysis_patients_per_station",
+                      f"CASE WHEN COALESCE(d.dialysis_stations, 0) = 0 THEN 'unrecorded' ELSE {dialysis_status} END",
+                      "dialysis_patients_per_station")}
         FROM raw_power p
         JOIN raw_empower_live l ON l.FIPS_Code = p.fips_code
         LEFT JOIN d ON d.fips_code = p.fips_code
@@ -154,26 +179,21 @@ def nearest_tract(con, table: str, key: str, lon: str, lat: str) -> None:
 
 
 def build_care_facilities(con) -> None:
+    cms = (("cms_county_text", R.trim('n."County/Parish"')),
+           ("cms_certified_beds", 'TRY_CAST(n."Number of Certified Beds" AS DOUBLE)'),
+           ("avg_residents_per_day", 'TRY_CAST(n."Average Number of Residents per Day" AS DOUBLE)'),
+           ("cms_provider_type", R.trim('n."Provider Type"')),
+           ("cms_sprinklers_all_required_areas", R.trim('n."Automatic Sprinkler Systems in All Required Areas"')))
+    cms_d = dict(cms)
     con.execute(f"""
         CREATE TABLE care_facilities_pre AS
         SELECT {lead('care_facilities', 'c')},
-               {R.trim('c.provider_name')} AS provider_name_clean,
-               {R.trim('c.provider_address')} AS provider_address_clean,
-               {R.trim('c.citytown')} AS citytown_clean,
-               'nullif_trim' AS text_rule,
-               {R.trim('n."County/Parish"')} AS cms_county_text,
-               TRY_CAST(n."Number of Certified Beds" AS DOUBLE) AS cms_certified_beds,
-               TRY_CAST(n."Average Number of Residents per Day" AS DOUBLE) AS avg_residents_per_day,
-               {R.recorded_or_unrecorded('TRY_CAST(n."Average Number of Residents per Day" AS DOUBLE)')}
-                   AS avg_residents_per_day_status,
-               TRY_CAST(n."Average Number of Residents per Day" AS DOUBLE)
-                   / NULLIF(TRY_CAST(n."Number of Certified Beds" AS DOUBLE), 0) AS occupancy_rate,
-               {R.recorded_or_unrecorded('TRY_CAST(n."Average Number of Residents per Day" AS DOUBLE)')}
-                   AS occupancy_rate_status,
-               'cms_occupancy' AS occupancy_rate_rule,
-               {R.trim('n."Provider Type"')} AS cms_provider_type,
-               {R.trim('n."Automatic Sprinkler Systems in All Required Areas"')} AS cms_sprinklers_all_required_areas,
-               'cms_join_ccn' AS cms_rule
+               {', '.join(R.tag(R.trim(f'c.{c}'), f'{c}_clean', R.recorded_or_unrecorded(R.trim(f'c.{c}')),
+                                'nullif_trim') for c in ('provider_name', 'provider_address', 'citytown'))},
+               {', '.join(R.tag(expr, name, R.recorded_or_unrecorded(expr), 'cms_join_ccn') for name, expr in cms)},
+               {R.tag(f"{cms_d['avg_residents_per_day']} / NULLIF({cms_d['cms_certified_beds']}, 0)", "occupancy_rate",
+                      R.recorded_or_unrecorded(f"{cms_d['avg_residents_per_day']} / NULLIF({cms_d['cms_certified_beds']}, 0)"),
+                      "cms_occupancy")}
         FROM raw_care c JOIN raw_cms_nh n ON n."CMS Certification Number (CCN)" = c.cms_certification_number_ccn
     """)
     expect(con, "care_facilities_pre", count(con, "SELECT * FROM raw_care"))
@@ -185,14 +205,16 @@ def build_care_facilities(con) -> None:
         CREATE TABLE care_facilities AS
         WITH med AS (SELECT {R.point('longitude', 'latitude')} AS g FROM raw_shelters WHERE is_medical)
         SELECT p.*,
-               n.nearest_tract_geo_id, n.km_to_tract_centroid, 'nearest_tract_centroid' AS nearest_tract_rule,
-               n.nearest_tract_county_fips AS county_fips, 'imputed' AS county_fips_status,
-               'nearest_tract_centroid' AS county_fips_rule,
-               h.hrcn_ealp_pctile, h.HRCN_AFREQ AS hrcn_afreq, h.cfld_share, h.coastal_flood_exposed,
-               (SELECT MIN(ST_Distance({R.point('p.longitude', 'p.latitude')}, med.g)) / 1000 FROM med)
-                   AS km_nearest_medical_shelter,
-               'assumption' AS km_nearest_medical_shelter_status,
-               'medical_shelter_distance_pending' AS km_nearest_medical_shelter_rule
+               {R.tag("n.nearest_tract_geo_id", "nearest_tract_geo_id", "'imputed'", "nearest_tract_centroid")},
+               {R.tag("n.km_to_tract_centroid", "km_to_tract_centroid", "'imputed'", "nearest_tract_centroid")},
+               {R.tag("n.nearest_tract_county_fips", "county_fips", "'imputed'", "nearest_tract_centroid")},
+               {', '.join(R.tag(f"h.{src}", name, "CASE WHEN h.geo_id IS NULL THEN 'unrecorded' ELSE 'imputed' END",
+                                "tract_hazard_join")
+                          for name, src in (("hrcn_ealp_pctile", "hrcn_ealp_pctile"), ("hrcn_afreq", "HRCN_AFREQ"),
+                                            ("cfld_share", "cfld_share"),
+                                            ("coastal_flood_exposed", "coastal_flood_exposed")))},
+               {R.tag(f"(SELECT MIN(ST_Distance({R.point('p.longitude', 'p.latitude')}, med.g)) / 1000 FROM med)",
+                      "km_nearest_medical_shelter", "'assumption'", "medical_shelter_distance_pending")}
         FROM care_facilities_pre p JOIN care_facilities_nearest n USING (cms_certification_number_ccn)
         LEFT JOIN hazard_tracts h ON h.geo_id = n.nearest_tract_geo_id
         ORDER BY p.cms_certification_number_ccn
@@ -209,7 +231,7 @@ def build_dialysis_centers(con) -> None:
                {R.trim('d."Facility Name"')} AS facility_name, {R.trim('d."Address Line 1"')} AS address,
                {R.trim('d."City/Town"')} AS city, left(d."ZIP Code", 5) AS zip,
                {R.trim('d."County/Parish"')} AS cms_county_text,
-               z.FIPS_Code AS county_fips, 'imputed' AS county_fips_status, 'zip_to_county_empower' AS county_fips_rule,
+               {R.tag("z.FIPS_Code", "county_fips", "'imputed'", "zip_to_county_empower")},
                TRY_CAST(d."# of Dialysis Stations" AS INTEGER) AS stations,
                {R.trim('d."Late Shift"')} AS late_shift,
                {R.trim('d."Offers in-center hemodialysis"')} AS offers_in_center_hemodialysis,
@@ -235,14 +257,14 @@ def build_overture_places(con) -> None:
     groups = " ".join(f"WHEN '{k}' THEN '{v}'" for k, v in OVERTURE_GROUPS.items())
     con.execute(f"""
         CREATE TABLE overture_places_pre AS
-        SELECT *, CASE category {groups} END AS place_group, 'external' AS record_status, 'overture_places' AS record_rule
+        SELECT *, {R.tag(f"CASE category {groups} END", "place_group", "'external'", "overture_places")}
         FROM raw_overture WHERE category IN ({', '.join(f"'{k}'" for k in OVERTURE_GROUPS)})
     """)
     nearest_tract(con, "overture_places", "id", "lon", "lat")
-    con.execute("""
+    con.execute(f"""
         CREATE TABLE overture_places AS
-        SELECT p.*, n.nearest_tract_geo_id, n.nearest_tract_county_fips AS county_fips,
-               'imputed' AS county_fips_status, 'nearest_tract_centroid' AS county_fips_rule
+        SELECT p.*, {R.tag("n.nearest_tract_geo_id", "nearest_tract_geo_id", "'imputed'", "nearest_tract_centroid")},
+               {R.tag("n.nearest_tract_county_fips", "county_fips", "'imputed'", "nearest_tract_centroid")}
         FROM overture_places_pre p LEFT JOIN overture_places_nearest n USING (id)
         ORDER BY place_group, id
     """)
@@ -264,6 +286,9 @@ def build_all(con) -> None:
                  build_overture_places):
         print(step.__name__)
         step(con)
+    for table in TABLES:
+        missing = unprovenanced(con, table)
+        assert not missing, f"{table}: columns without _status and _rule: {missing}"
 
 
 def numbers(con) -> dict:
@@ -275,9 +300,10 @@ def numbers(con) -> dict:
              FROM power_dependent_counties""")
     suppressed = {name: q(f"SELECT COUNT(*) FROM power_dependent_counties WHERE {name}_live_status = 'imputed'")[0]
                   for name in EMPOWER_FIELDS}
-    h = q("""SELECT COUNT(*) FILTER (WHERE cfld_status = 'imputed'), COUNT(*) FILTER (WHERE coastal_flood_exposed),
+    h = q("""SELECT COUNT(*) FILTER (WHERE cfld_expp_clean_status = 'imputed'), COUNT(*) FILTER (WHERE coastal_flood_exposed),
                     SUM(POPULATION), COUNT(*) FILTER (WHERE NOT has_vulnerability_tract)
              FROM hazard_tracts""")
+    missing = q("SELECT COUNT(*), COALESCE(SUM(total_pop), 0) FROM raw_tracts ANTI JOIN raw_hazard USING (geo_id)")
     c = q("""SELECT SUM(number_of_certified_beds), SUM(cms_certified_beds), SUM(avg_residents_per_day),
                     SUM(avg_residents_per_day) / SUM(cms_certified_beds) FILTER (WHERE avg_residents_per_day IS NOT NULL),
                     COUNT(*) FILTER (WHERE avg_residents_per_day IS NULL),
@@ -288,8 +314,8 @@ def numbers(con) -> dict:
         "rows": {name: count(con, sql) for name, sql in TABLES.items()},
         "hazard_tracts": {"cfld_imputed_outside_layer": h[0], "coastal_flood_exposed": h[1], "nri_population": h[2],
                           "without_vulnerability_tract": h[3],
-                          "vulnerability_tracts_without_hazard_row": q(
-                              "SELECT COUNT(*) FROM raw_tracts ANTI JOIN raw_hazard USING (geo_id)")[0]},
+                          "vulnerability_tracts_without_hazard_row": missing[0],
+                          "vulnerability_tracts_without_hazard_row_population": missing[1]},
         "power_dependent_counties": {
             "power_dependent_live": p[0], "power_dependent_snapshot": p[1], "dialysis_live": p[2],
             "facility_esrd_dialysis_any_dme_snapshot": p[3], "dialysis_stations": p[4], "dialysis_centers": p[5],

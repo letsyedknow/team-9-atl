@@ -9,7 +9,7 @@ its published value; cleaned values go in appended columns with `_status` and `_
 | Rule | Rows | Before | After |
 |---|---:|---|---|
 | `source columns` | 2,791 | 11 NRI columns as published | unchanged, in the BigQuery `hazard_tracts_clean` order |
-| `cfld_null_outside_layer` | 2,588 | `CFLD_EXPP` NULL | `cfld_expp_clean` = 0, `cfld_status` = imputed |
+| `cfld_null_outside_layer` | 2,588 | `CFLD_EXPP` NULL | `cfld_expp_clean` = 0, `cfld_expp_clean_status` = imputed |
 | `hrcn_ealp_percentile` | 2,791 | `HRCN_EALP` 0 to 0.0329 | `hrcn_ealp_pctile` 0 to 1 (top: 13029920308) |
 | `fips_from_geo_id` | 2,791 | no county column | `county_fips` = left(geo_id, 5) |
 

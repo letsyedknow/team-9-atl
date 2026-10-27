@@ -146,7 +146,7 @@
     },
     "affects": "which facilities and tracts flood in a given storm",
     "fill": "external_source",
-    "detail": "NRI coastal flood is an annualised composite. NOAA NHC SLOSH MOM rasters (public domain, 1.65 GB) are documented in extdata/slosh, not clipped.",
+    "detail": "NRI coastal flood is an annualised composite. NOAA NHC SLOSH MOM rasters (public domain) are documented in extdata/slosh, not clipped.",
     "fill_status": "open"
   },
   {
@@ -155,9 +155,9 @@
     "gap": "2020 tracts with no NRI hazard row",
     "size": {
       "tracts": 5,
-      "population": 0
+      "population": 0.0
     },
-    "affects": "nothing: all have population 0 (water tracts)",
+    "affects": "nothing while population is 0 (water tracts)",
     "fill": "never_filled",
     "detail": "Asserted at build: the build fails if any populated tract lacks a row.",
     "fill_status": "open"
@@ -166,9 +166,7 @@
     "id": "evacuation_route_geometry",
     "table": null,
     "gap": "Official evacuation route geometry",
-    "size": {
-      "gdot_segments_not_shipped": 110
-    },
+    "size": {},
     "affects": "which roads evacuees use",
     "fill": "external_source",
     "detail": "Licence gap: the GDOT layer states no licence and is not shipped. Analyses use Census TIGER/Line 2023 roads by route name; drive legs come from Maps routing at runtime, nothing stored.",

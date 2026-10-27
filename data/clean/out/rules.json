@@ -1,10 +1,13 @@
 {
   "census_geocoder": "Coordinates from the US Census Geocoder batch on the CMS address (US Government work); coordinates_confidence carries the match quality.",
   "cfld_null_outside_layer": "CFLD_EXPP null means the tract is outside NRI's coastal-flood layer: cfld_expp_clean = 0, status imputed. The source column is unchanged.",
-  "cms_dialysis_stations": "Dialysis stations summed from CMS Dialysis Facility listing, county from ZIP.",
+  "cfld_share": "Share of tract population in NRI's coastal-flood layer: cfld_expp_clean / POPULATION, capped at 1.",
+  "cms_dialysis_stations": "Dialysis centers and stations summed from the CMS Dialysis Facility listing, county from ZIP; a county with no listed center is 0, status imputed.",
   "cms_join_ccn": "Joined to CMS Nursing Home Provider Information on CMS Certification Number (CCN).",
   "cms_occupancy": "Occupancy = CMS Average Number of Residents per Day / CMS certified beds (an average, not the daily census).",
+  "coastal_flood_exposed": "True when cfld_expp_clean > 0.",
   "coordinates_absent": "CMS publishes no coordinates and the geocoder found no match.",
+  "dialysis_patients_per_station": "Live emPOWER dialysis beneficiaries / CMS stations; null where a county has no station.",
   "empower_live_canonical": "HHS emPOWER REST service, fetched 2026-10-27; canonical for power dependence and dialysis.",
   "empower_snapshot_unverified": "Snapshot column facility_esrd_dialysis_any_dme (6,009 statewide) does not match the live service's dialysis count (18,026); kept as published, marked suspect, never used as dialysis patients.",
   "empower_suppressed_1_11": "emPOWER shows counts of 1-10 as 11: the value is the range 1-11, _low = 1, value kept as upper bound.",
@@ -15,5 +18,7 @@
   "nullif_trim": "Blank or whitespace-only strings are null (unrecorded), never a value.",
   "overture_places": "Overture Maps Places release 2026-10-21.0, per-row licence in source_license (CDLA-Permissive-2.0, Apache-2.0, CC0-1.0); confidence is Overture's own. A listing, not licensure: no beds, no fleet size.",
   "source_value": "Value as published by the source; no transformation.",
+  "tract_hazard_join": "Hazard value of the facility's nearest tract (hazard_tracts clean columns).",
+  "vulnerability_tract_join": "True when the hazard row's geo_id is in the snapshot vulnerability_tracts table.",
   "zip_to_county_empower": "County from the facility ZIP via the emPOWER ZIP table's county FIPS (one county per ZIP)."
 }
