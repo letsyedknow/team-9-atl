@@ -1,18 +1,12 @@
 # Evacuation readiness agent
 
-The ADK agent combines purpose-built Python tools, Google Maps grounding, and the
-Google-managed BigQuery MCP server. The MCP connection is restricted to the
-read-only `execute_sql_readonly` tool and uses Application Default Credentials
-(ADC), refreshed for each connection as needed. Use the existing `.env.example`
-for the project and dataset settings.
+`agent.py` defines `root_agent`: Gemini 3 with Google Maps grounding, the purpose-built BigQuery tools in `evacuation_tools.py`, and the Google-managed BigQuery MCP server, all reading dataset `evac_prod`. It runs on Cloud Run; see `deploy/README.md` for the live URL, local runs and deployment.
 
-Before running or deploying the agent, enable the BigQuery API and grant its
-runtime identity `roles/mcp.toolUser` and `roles/bigquery.jobUser` on the query
-project, plus `roles/bigquery.dataViewer` on the `evacuation_readiness` dataset.
-Local development can use ADC from `gcloud auth application-default login`;
-production should use a dedicated workload identity or attached service account
-with only those permissions. No service-account key or static access token is
-required.
+The MCP connection is restricted to the read-only `execute_sql_readonly` tool and uses Application Default Credentials (ADC), refreshed as needed. The runtime identity needs `roles/mcp.toolUser`, `roles/bigquery.jobUser` and `roles/bigquery.dataViewer`; `deploy/setup_gcp.sh` grants them to the Cloud Run service account. Local development uses ADC from `gcloud auth application-default login`. No service-account key or static token is needed.
+
+## Challenge brief
+
+The rest of this file is the challenge packet's guidance for this folder.
 
 ## What has to be true of what you build here
 
