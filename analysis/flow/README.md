@@ -11,6 +11,8 @@ python3 analysis/flow/fetch_acs_race.py    # once: refreshes data/ga_tract_race_
 
 `C4DATA` overrides the snapshot root (default `~/work/c4data`).
 
+Storm-scenario origin → route → host results are in [SCENARIOS.md](SCENARIOS.md).
+
 ## Short answer
 
 - **The receiving-state story holds directionally but is thinner on seats than the file
