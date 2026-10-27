@@ -10,7 +10,8 @@ POOL_ID="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${WIF
 
 gcloud services enable --project "${PROJECT_ID}" \
   run.googleapis.com artifactregistry.googleapis.com aiplatform.googleapis.com \
-  bigquery.googleapis.com iamcredentials.googleapis.com sts.googleapis.com
+  bigquery.googleapis.com iamcredentials.googleapis.com sts.googleapis.com \
+  secretmanager.googleapis.com routes.googleapis.com
 
 gcloud artifacts repositories describe "${AR_REPO}" --project "${PROJECT_ID}" --location "${REGION}" >/dev/null 2>&1 ||
   gcloud artifacts repositories create "${AR_REPO}" --project "${PROJECT_ID}" --location "${REGION}" \
@@ -21,10 +22,13 @@ for sa in "${RUNTIME_SA}" "${DEPLOY_SA}"; do
     gcloud iam service-accounts create "${sa%%@*}" --project "${PROJECT_ID}"
 done
 
-for role in roles/bigquery.dataViewer roles/bigquery.jobUser roles/aiplatform.user roles/mcp.toolUser; do
+for role in roles/bigquery.dataViewer roles/bigquery.jobUser roles/aiplatform.user roles/mcp.toolUser roles/serviceusage.serviceUsageConsumer; do
   gcloud projects add-iam-policy-binding "${PROJECT_ID}" --member "serviceAccount:${RUNTIME_SA}" \
     --role "${role}" --condition None --quiet >/dev/null
 done
+
+gcloud secrets add-iam-policy-binding routes-api-key --project "${PROJECT_ID}" \
+  --member "serviceAccount:${RUNTIME_SA}" --role roles/secretmanager.secretAccessor --quiet >/dev/null
 
 gcloud projects add-iam-policy-binding "${PROJECT_ID}" --member "serviceAccount:${DEPLOY_SA}" \
   --role roles/run.developer --condition None --quiet >/dev/null
