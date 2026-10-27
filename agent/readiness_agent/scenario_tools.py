@@ -7,6 +7,18 @@ from .evacuation_tools import _dataset_name, _project_id, _run_query
 
 CONTEXT_PREFIX = "CONTEXT v1 "
 RANGE_LABEL = "scenario range from 27 past storms"
+SOURCES = {
+    "scenario": (
+        "Simulated · outage model fitted on DOE EAGLE-I county outages for 27 storms 2018-2025 "
+        "(county_storm_outages) and NOAA IBTrACS tracks; residents at risk from HHS emPOWER "
+        "(power_dependent_counties_clean)"
+    ),
+    "season": (
+        "Simulated · storm exposure from NOAA IBTrACS tracks since 1950; outage response fitted on "
+        "2018-2025 EAGLE-I labels (scenario_season_county)"
+    ),
+    "gaps": "Simulated · season model rerun with each unknown set low and high (scenario_fix_ranking)",
+}
 TOP_COUNTIES = 20
 N_DRAWS = 400
 SEED = 20261027
@@ -196,28 +208,31 @@ def run_scenario(
             },
         },
         "statewide": statewide,
+        "source": SOURCES["scenario"],
         "counties": rows,
         "receiving": receiving,
     }
 
 
-def season_county_risk(county_fips: str | None = None, limit: int = 10) -> list[dict[str, Any]]:
+def season_county_risk(county_fips: str | None = None, limit: int = 10) -> dict[str, Any]:
     """Season-long hurricane risk per Georgia county from about 2,000 simulated storms based on every storm since 1950 near Georgia: chance per year of losing power to at least 25% of customers, power-dependent residents affected in a typical and a 1-in-10 year, dialysis patients displaced, and people left without a powered seat. Without county_fips, returns the counties with the most people left uncovered."""
     from google.cloud import bigquery
 
     table = f"`{_project_id()}.{_dataset_name()}.scenario_season_county`"
     if county_fips:
-        return _run_query(
+        rows = _run_query(
             f"SELECT * FROM {table} WHERE county_fips = @fips",
             [bigquery.ScalarQueryParameter("fips", "STRING", county_fips)],
         )
-    return _run_query(
-        f"SELECT * FROM {table} ORDER BY uncovered_1in10 DESC LIMIT @limit",
-        [bigquery.ScalarQueryParameter("limit", "INT64", limit)],
-    )
+    else:
+        rows = _run_query(
+            f"SELECT * FROM {table} ORDER BY uncovered_1in10 DESC LIMIT @limit",
+            [bigquery.ScalarQueryParameter("limit", "INT64", limit)],
+        )
+    return {"counties": rows, "source": SOURCES["season"]}
 
 
-def gap_sensitivity() -> list[dict[str, Any]]:
+def gap_sensitivity() -> dict[str, Any]:
     """Unknowns in Georgia's records ranked by how much each changes the number of power-dependent and dialysis patients left without a powered seat or a chair in a 1-in-10 season, with the record to collect to resolve each one."""
     table = f"`{_project_id()}.{_dataset_name()}.scenario_fix_ranking`"
-    return _run_query(f"SELECT * FROM {table} ORDER BY swing DESC")
+    return {"gaps": _run_query(f"SELECT * FROM {table} ORDER BY swing DESC"), "source": SOURCES["gaps"]}

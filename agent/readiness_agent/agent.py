@@ -55,7 +55,8 @@ Using the screen's context:
 - CONTEXT v1 scenario holds affected_county_fips, affected_shelter_ids and receiving_top. The
   receiving list is already ranked by the screen's documented rule (within the reach cutoff,
   capacity first). For questions about receiving or affected shelters, call get_shelters with those
-  ids (at most 25) and keep the screen's order; do not re-rank. Say the scenario is illustrative.
+  ids (at most 25) and keep the screen's order; do not re-rank. The screen's band and receiving
+  list are illustrative; run_scenario's figures are modelled ranges. Say which one you are quoting.
 
 Tools:
 - Prefer the purpose-built readiness tools for standard questions.
