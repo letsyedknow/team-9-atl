@@ -21,7 +21,7 @@ for sa in "${RUNTIME_SA}" "${DEPLOY_SA}"; do
     gcloud iam service-accounts create "${sa%%@*}" --project "${PROJECT_ID}"
 done
 
-for role in roles/bigquery.dataViewer roles/bigquery.jobUser roles/aiplatform.user; do
+for role in roles/bigquery.dataViewer roles/bigquery.jobUser roles/aiplatform.user roles/mcp.toolUser; do
   gcloud projects add-iam-policy-binding "${PROJECT_ID}" --member "serviceAccount:${RUNTIME_SA}" \
     --role "${role}" --condition None --quiet >/dev/null
 done

@@ -1,16 +1,12 @@
 # Evacuation readiness agent
 
-`agent.py` defines `root_agent`: Gemini 3 with Google Maps grounding and the BigQuery tools in `evacuation_tools.py`, reading dataset `evac_prod`. It runs on Cloud Run; see `deploy/README.md` for the live URL, local runs and deployment.
+`agent.py` defines `root_agent`: Gemini 3 with Google Maps grounding, the purpose-built BigQuery tools in `evacuation_tools.py`, and the Google-managed BigQuery MCP server, all reading dataset `evac_prod`. It runs on Cloud Run; see `deploy/README.md` for the live URL, local runs and deployment.
+
+The MCP connection is restricted to the read-only `execute_sql_readonly` tool and uses Application Default Credentials (ADC), refreshed as needed. The runtime identity needs `roles/mcp.toolUser`, `roles/bigquery.jobUser` and `roles/bigquery.dataViewer`; `deploy/setup_gcp.sh` grants them to the Cloud Run service account. Local development uses ADC from `gcloud auth application-default login`. No service-account key or static token is needed.
 
 ## Challenge brief
 
 The rest of this file is the challenge packet's guidance for this folder.
-
-We built the on-ramp: every registered shelter in your state with capacity and accessibility, the
-census tracts around them with disability, vehicle access and age, the counties where people depend
-on electricity for medical equipment, hurricane and coastal-flood exposure per tract, and a
-validation suite that tells you plainly whether any of it is wrong. We did not build the vehicle.
-The design decisions in your agent are what you are judged on.
 
 ## What has to be true of what you build here
 
