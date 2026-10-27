@@ -10,9 +10,10 @@ export default defineConfig({
   publicDir: process.env.VITE_MOCK_AGENT ? "mock-public" : false,
   server: {
     // The agent service serves these routes in production from the same origin (research R1).
+    // ADK rejects requests whose Origin differs from its own, so the proxy presents the agent's origin.
     proxy: {
-      "/apps": AGENT,
-      "/run": AGENT, // also matches /run_sse
+      "/apps": { target: AGENT, changeOrigin: true, headers: { origin: AGENT } },
+      "/run": { target: AGENT, changeOrigin: true, headers: { origin: AGENT } }, // also matches /run_sse
     },
   },
   test: {
