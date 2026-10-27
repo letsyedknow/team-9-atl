@@ -16,16 +16,18 @@ python3 analysis/flow/fetch_acs_race.py    # once: refreshes data/ga_tract_race_
 - **The receiving-state story holds directionally but is thinner on seats than the file
   suggests.** Georgia reports 1,138,056 evacuation spaces; 571,869 survive cleaning. The two
   Commerce schools alone are 495,247 of the 501,320 suspect spaces (44.1% of everything reported).
-- **I-75 south (Florida line to Macon), where Florida traffic lands first, has 53,815 clean
-  seats.** Only 3,697 of them are at shelters recorded as wheelchair-accessible, and the corridor
+- **I-75 south (Florida line to Macon) has 53,815 clean seats.** GDOT measured Milton's
+  northbound surge on exactly this stretch (section 2). Only 3,697 of them are at shelters recorded as wheelchair-accessible, and the corridor
   has no medical-needs shelter. Under the base assumptions, Florida and coastal-Georgia shelter
   seekers fill 31% of it. Under the high assumptions they need 174% of it.
-- **I-95 is not a receiving corridor; it is in the hazard zone.** Of 31 usable shelters within
+- **I-95 in Georgia runs through the hazard zone itself** (hypothesis: it cannot serve as a
+  receiving corridor in a storm that also threatens the Georgia coast). Of 31 usable shelters within
   15 km of I-95 in Georgia, 13 are recorded inside the surge/SLOSH area, 17 are unrecorded and 1 is
   recorded outside it.
 - **Medical-needs sheltering is where the receiving story breaks.** There are 14 medical-needs
   shelters with 4,594 seats for 92,567 power-dependent Georgians (20 per seat) before any Floridian
-  arrives. Four nursing homes in Valdosta, on the I-75 entry corridor, are about 163 km from the nearest one.
+  arrives. Four nursing homes in Valdosta, the first Georgia city on I-75 north of the Florida line, are
+  about 163 km from the nearest one.
 
 ## Cleaning rules applied (`common.py`)
 
@@ -57,8 +59,8 @@ The Georgia World Congress Center (68,896 spaces, 6.6% of Fulton) passes the rul
 it is 12.0% of all clean capacity on its own. That one row is worth verifying before quoting. Full
 list: `out/capacity_large_rows.csv`.
 
-Distances are straight-line, in UTM 17N, from tract centroids. Shelters have no tract id; facilities
-are put on the nearest tract centroid.
+**Assumption:** distance is straight-line, in UTM 17N, from tract centroids. It is not drive time.
+Shelters have no tract id, and facilities are put on the nearest tract centroid.
 
 ## 1. Capacity reality (`capacity.py`)
 
@@ -160,15 +162,16 @@ shelter-use rates applied to Georgia's 176,420 coastal-flood-exposed residents:
 | High | 815,393 | 177,969 | 7,160 | 81,540 | 12,349 | **174%** | 35% |
 
 What this says, as a hypothesis: on general seats Georgia can absorb a central-Florida evacuation
-only if it spreads evacuees beyond the I-75 entry corridor. Wheelchair and medical seats are the
-binding constraint. Even the low scenario sends 531 power-dependent Floridians into a corridor with
+only if it spreads evacuees beyond the I-75 corridor south of Macon, and wheelchair and medical
+seats run short before general seats do. Even the low scenario sends 531 power-dependent Floridians into a corridor with
 no medical-needs shelter. Carless households are reported only as an upper bound
-(`carless_households_upper_bound`), because a household without a car mostly cannot drive to Georgia.
+(`carless_households_upper_bound`). Assumption: a household without a car mostly cannot drive to Georgia.
 Florida's 152,466 exposed carless households are a Florida transport problem, not Georgia demand.
 
 ## 3. Coastal Georgia: getting out (`getout.py`)
 
-Coastal tract = any NRI coastal-flood exposure (`CFLD_EXPP > 0`): 182 tracts, 648,856 people.
+**Assumption:** a coastal tract is one with any NRI coastal-flood exposure (`CFLD_EXPP > 0`). That
+gives 182 tracts and 648,856 people.
 Destinations are clean-capacity EVAC/BOTH buildings.
 
 | Measure | Value |
@@ -185,7 +188,7 @@ Destinations are clean-capacity EVAC/BOTH buildings.
 
 The ratio is car *households* per carless household, not vehicles per carless household, so it is
 not comparable to the prework's 29 vehicles per household. By that measure ride-matching capacity
-exists almost everywhere on the coast. The binding constraint is the destination. In the coastal
+exists almost everywhere on the coast. Hypothesis: the destination is the tighter constraint. In the coastal
 counties, 13 of 17 wheelchair-yes usable shelters are recorded inside the surge/SLOSH area and 1 is
 unrecorded. A wheelchair user leaving the coast has a recorded-accessible, not-recorded-in-surge
 shelter about 40 km away (median).
@@ -226,7 +229,8 @@ coastal-flood facilities are also high-hurricane.
 
 The farthest (`out/care_facilities_exposed.csv`): Senior Care Center St Marys (Camden; tract 51%
 coastal-flood exposed) is 185 km away, Folkston Park (Charlton) 173 km, and four Valdosta nursing
-homes about 163 km. Valdosta is the I-75 entry point for Florida evacuees.
+homes about 163 km. Valdosta lies on the I-75 segment where GDOT measured Milton's 280% northbound
+surge.
 
 ## 5. Equity audit (`equity.py`)
 

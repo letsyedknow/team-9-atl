@@ -77,6 +77,11 @@ def connect() -> duckdb.DuckDBPyConnection:
                         THEN LEAST(COALESCE(CFLD_EXPP, 0) / POPULATION, 1.0) END AS cfld_share
             FROM {table(st, 'hazard_tracts')}
         """)
+        missing = con.execute(f"""
+            SELECT COUNT(*), COALESCE(SUM(total_pop), 0)
+            FROM {s}_tracts ANTI JOIN {s}_hazard USING (geo_id)
+        """).fetchall()[0]
+        assert missing[1] == 0, f"{st}: {missing[0]} populated tracts have no hazard row"
     con.execute("""
         CREATE VIEW ga_county_pop AS
         SELECT county_fips, SUM(total_pop) AS county_pop
