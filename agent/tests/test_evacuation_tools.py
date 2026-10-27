@@ -1,6 +1,7 @@
 """Tool output shaping, with BigQuery replaced by fakes (tasks T068, T078). No credentials needed."""
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -23,6 +24,14 @@ def shelter_row(sid, cap=200, wc=None, gen=None, fips="13157", name=None):
 def fake_bq(monkeypatch):
     calls = []
     rows = {"value": []}
+    monkeypatch.setattr(tools, "_bigquery", lambda: SimpleNamespace(
+        ScalarQueryParameter=lambda name, type_, value: SimpleNamespace(
+            name=name, type_=type_, value=value
+        ),
+        ArrayQueryParameter=lambda name, type_, values: SimpleNamespace(
+            name=name, type_=type_, values=values
+        ),
+    ))
 
     def run(sql, params=None):
         calls.append((sql, {p.name: getattr(p, "value", getattr(p, "values", None)) for p in params or []}))
@@ -56,6 +65,251 @@ def test_suspect_capacity_flagged_and_ranked_as_zero_in_sql(fake_bq):
     out = tools.assess_shelter_accessibility(county_fips="13157")
     assert "suspect_capacity" in out["shelters"][0]["quality_flags"]
     assert "evacuation_capacity > 100000, 0" in calls[0][0]
+
+
+def test_rank_county_evacuation_needs_uses_clean_tables_and_reasons(monkeypatch):
+    calls = []
+    responses = [
+        [{
+            "tract_id": "13157000100",
+            "county_fips": "13157",
+            "households_no_vehicle": 24,
+            "pct_no_vehicle": 12.5,
+            "pct_age_65_plus": 20.0,
+            "pct_disability": 14.0,
+            "pct_mobility": 18.0,
+            "pct_selfcare": 7.0,
+            "pct_indeplive": 10.0,
+            "mobile_homes": 9,
+        }],
+        [{
+            "facility_id": "115002",
+            "provider_name": "Jackson Care Center",
+            "avg_residents_per_day": 120.5,
+            "avg_residents_per_day_status": "recorded",
+            "coastal_flood_exposed": True,
+            "coastal_flood_exposed_status": "imputed",
+        }],
+    ]
+    monkeypatch.setattr(
+        tools,
+        "_scalar",
+        lambda name, _type, value: SimpleNamespace(name=name, value=value),
+    )
+
+    def run(sql, params=None):
+        calls.append((sql, {p.name: p.value for p in params or []}))
+        return responses[len(calls) - 1]
+
+    monkeypatch.setattr(tools, "_run_query", run)
+    result = tools.rank_county_evacuation_needs(county_fips="13157")
+
+    assert "vulnerability_tracts_clean" in calls[0][0]
+    assert "care_facilities_clean" in calls[1][0]
+    assert calls[0][1]["tract_county_fips"] == "13157"
+    assert calls[1][1]["facility_county_fips"] == "13157"
+    assert "24 households without a vehicle" in result["priority_tracts"][0]["priority_reason"]
+    assert "7% modeled self-care difficulty" in result["priority_tracts"][0]["priority_reason"]
+    assert "CMS average 120.5 residents per day" in result["nursing_home_facilities"][0]["priority_reason"]
+    assert "recorded coastal-flood exposure" in result["nursing_home_facilities"][0]["priority_reason"]
+
+
+def test_find_shelter_support_returns_granular_flags_and_full_county_counts(fake_bq, monkeypatch):
+    calls, rows = fake_bq
+    monkeypatch.setattr(
+        tools,
+        "_scalar",
+        lambda name, _type, value: SimpleNamespace(name=name, value=value),
+    )
+    rows["value"] = [{
+        "shelter_id": 101,
+        "shelter_name": "Jackson Medical Shelter",
+        "address_1": "1 Main St",
+        "city": "Commerce",
+        "zip": "30529",
+        "county_fips": "13157",
+        "county_name": "Jackson",
+        "population_code": "MED",
+        "is_medical": True,
+        "generator_onsite": None,
+        "total_shelters": 3,
+        "medical_yes": 1,
+        "medical_no": 1,
+        "medical_unrecorded": 1,
+        "generator_yes": 1,
+        "generator_no": 1,
+        "generator_unrecorded": 1,
+    }]
+
+    result = tools.find_shelter_medical_and_generator_support(county_fips="13157", limit=1)
+
+    sql, params = calls[0]
+    assert params["county_fips"] == "13157"
+    assert params["state"] == "GA"
+    assert "COUNTIF(population_code IS NULL OR is_medical IS NULL) OVER()" in sql
+    assert "COUNTIF(generator_onsite IS NULL) OVER()" in sql
+    assert result["total_shelters"] == 3
+    assert result["returned_shelters"] == 1
+    assert result["counts"] == {
+        "medical_support": {"yes": 1, "no": 1, "unrecorded": 1},
+        "generator_onsite": {"yes": 1, "no": 1, "unrecorded": 1},
+    }
+    assert result["shelters"][0] == {
+        "shelter_id": "101",
+        "name": "Jackson Medical Shelter",
+        "address": "1 Main St, Commerce, 30529",
+        "county_fips": "13157",
+        "county_name": "Jackson",
+        "medical_support": "YES",
+        "generator_onsite": "UNRECORDED",
+    }
+
+
+def test_find_shelter_support_requires_county_and_valid_limit(fake_bq):
+    with pytest.raises(ValueError, match="county_fips or county"):
+        tools.find_shelter_medical_and_generator_support()
+    with pytest.raises(ValueError, match="between 1 and 100"):
+        tools.find_shelter_medical_and_generator_support(county="Jackson", limit=101)
+
+
+def test_find_shelter_support_treats_missing_population_code_as_unrecorded(fake_bq, monkeypatch):
+    _, rows = fake_bq
+    monkeypatch.setattr(
+        tools,
+        "_scalar",
+        lambda name, _type, value: SimpleNamespace(name=name, value=value),
+    )
+    rows["value"] = [{
+        "shelter_id": 102,
+        "shelter_name": "County Shelter",
+        "county_fips": "13157",
+        "population_code": None,
+        "is_medical": False,
+        "generator_onsite": False,
+        "total_shelters": 1,
+        "medical_yes": 0,
+        "medical_no": 0,
+        "medical_unrecorded": 1,
+        "generator_yes": 0,
+        "generator_no": 1,
+        "generator_unrecorded": 0,
+    }]
+
+    result = tools.find_shelter_medical_and_generator_support(county="Jackson")
+
+    assert result["shelters"][0]["medical_support"] == "UNRECORDED"
+    assert result["shelters"][0]["generator_onsite"] == "NO"
+
+
+def test_analyze_county_readiness_gaps_finds_access_and_generator_gaps(monkeypatch):
+    accessible = shelter_row("a", wc=True, gen=None, name="Accessible Shelter")
+    accessible["in_surge_slosh_area"] = True
+    no_generator = shelter_row("b", wc=False, gen=False, name="No Generator Shelter")
+    tract_rows = [
+        {
+            "tract_id": "13157000100",
+            "county_fips": "13157",
+            "county_name": "Jackson",
+            "households_no_vehicle": 5,
+            "pct_no_vehicle": 10,
+            "pct_age_65_plus": 20,
+            "pct_disability": 15,
+            "lat": 34.2,
+            "lon": -83.4,
+        },
+        {
+            "tract_id": "13157000200",
+            "county_fips": "13157",
+            "county_name": "Jackson",
+            "households_no_vehicle": 12,
+            "pct_no_vehicle": 20,
+            "pct_age_65_plus": 10,
+            "pct_disability": 9,
+            "lat": None,
+            "lon": None,
+        },
+        {
+            "tract_id": "13157000300",
+            "county_fips": "13157",
+            "county_name": "Jackson",
+            "households_no_vehicle": 7,
+            "pct_no_vehicle": 15,
+            "pct_age_65_plus": 11,
+            "pct_disability": 8,
+            "lat": 31.0,
+            "lon": -81.0,
+        },
+    ]
+    monkeypatch.setattr(
+        tools,
+        "_scalar",
+        lambda name, _type, value: SimpleNamespace(name=name, value=value),
+    )
+    monkeypatch.setattr(tools, "_surge_fallback_exists", lambda: False)
+    monkeypatch.setattr(tools, "find_power_dependent_counties", lambda **_: {
+        "counties": [{"power_dependent_dme": 2500}],
+        "source": tools.SOURCES["power"],
+    })
+
+    def run(sql, params=None):
+        if "v.geo_id AS tract_id" in sql:
+            return tract_rows
+        if "care_facilities_clean" in sql:
+            return [{
+                "facility_id": "115002",
+                "provider_name": "County Nursing Home",
+                "coastal_flood_exposed": True,
+                "coastal_flood_exposed_status": "imputed",
+            }]
+        if "shelters_clean" in sql and "s.county_fips = @county_fips" in sql:
+            return [accessible, no_generator]
+        if "shelters_clean" in sql:
+            return [accessible, no_generator]
+        raise AssertionError(f"Unexpected query: {sql}")
+
+    monkeypatch.setattr(tools, "_run_query", run)
+    result = tools.analyze_county_readiness_gaps(
+        county_fips="13157", reach_km=80, detail_limit=3
+    )
+
+    access = result["accessibility_gaps"]
+    assert access["tracts_without_accessible_destination_within_reach"] == 2
+    assert access["households_no_vehicle_in_all_access_gaps"] == 19
+    assert len(access["top_gaps"]) == 2
+    assert access["top_gaps"][0]["tract_id"] == "13157000200"
+    with_access = next(
+        row for row in access["top_tract_destinations"] if row["tract_id"] == "13157000100"
+    )
+    assert with_access["nearest_accessible_shelter"]["shelter_id"] == "a"
+    assert result["generator_gaps"]["shelter_count"] == 2
+    assert result["generator_gaps"]["county_power_dependent_dme"] == 2500
+    assert result["flood_and_surge_gaps"]["shelters_recorded_in_surge_zone"][0]["shelter_id"] == "a"
+    assert result["flood_and_surge_gaps"]["nursing_homes_recorded_coastal_flood_exposed"][0]["facility_id"] == "115002"
+    assert "no generator field" in result["flood_and_surge_gaps"]["nursing_home_generator_status"]
+
+
+def test_analyze_county_readiness_gaps_validates_thresholds():
+    with pytest.raises(ValueError, match="county_fips"):
+        tools.analyze_county_readiness_gaps("")
+    with pytest.raises(ValueError, match="between 25 and 200"):
+        tools.analyze_county_readiness_gaps("13157", reach_km=10)
+
+
+def test_check_receiving_shelters_live_deduplicates_and_limits(monkeypatch):
+    checked = []
+    monkeypatch.setattr(
+        tools,
+        "check_shelter_google_maps",
+        lambda shelter_id: checked.append(shelter_id) or {"shelter_id": shelter_id},
+    )
+
+    result = tools.check_receiving_shelters_live(["a", "a", "b"])
+
+    assert checked == ["a", "b"]
+    assert result["checked_count"] == 2
+    assert result["checks"] == [{"shelter_id": "a"}, {"shelter_id": "b"}]
+    with pytest.raises(ValueError, match="At most 3"):
+        tools.check_receiving_shelters_live([str(i) for i in range(4)])
 
 
 def test_power_counties_have_county_fips(fake_bq):
@@ -223,12 +477,40 @@ def test_readiness_brief_counts_what_it_could_not_tell(fake_bq, monkeypatch):
     _, rows = fake_bq
     monkeypatch.setattr(tools, "identify_risky_shelters", lambda **kw: {"risky_shelters": []})
     rows["value"] = [shelter_row("a", wc=None, gen=None), shelter_row("b", wc=True, gen=None)]
+    monkeypatch.setattr(
+        tools,
+        "_scalar",
+        lambda name, _type, value: SimpleNamespace(name=name, value=value),
+    )
+    monkeypatch.setattr(tools, "rank_county_evacuation_needs", lambda **_: {
+        "priority_tracts": [],
+        "nursing_home_facilities": [],
+        "source": "test sources",
+    })
+    monkeypatch.setattr(tools, "analyze_county_readiness_gaps", lambda *_args, **_kwargs: {
+        "county_fips": "13157",
+        "county_shelter_count": 2,
+        "county_flag_counts": {
+            "wheelchair_accessible": {"yes": 1, "no": 0, "unrecorded": 1},
+            "generator_onsite": {"yes": 0, "no": 0, "unrecorded": 2},
+        },
+        "accessibility_gaps": {
+            "tracts_without_accessible_destination_within_reach": 0,
+            "households_no_vehicle_in_all_access_gaps": 0,
+        },
+        "generator_gaps": {},
+        "flood_and_surge_gaps": {"nursing_homes_generator_unrecorded": 0},
+    })
     brief = tools.build_readiness_brief("GA", county_fips="13157")
     cnt = brief["could_not_tell"]
     assert cnt["wheelchair_unrecorded"] == 1
     assert cnt["generator_unrecorded"] == 2
     assert cnt["shelters_considered"] == 2
+    assert cnt["shelters_not_live_checked"] == 2
     assert "shelters_clean" in brief["sources"]["shelters_to_verify"]
+    assert brief["readiness_gaps"]["county_fips"] == "13157"
+    assert "live_destination_status" in cnt
+    assert cnt["nursing_home_generator_status"].startswith("UNRECORDED")
 
 
 def test_readiness_brief_requires_a_county():

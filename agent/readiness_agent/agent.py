@@ -15,9 +15,13 @@ from google.auth.transport.requests import Request
 from .callbacks import check_wheelchair_callback, load_map_data_callback
 from .evacuation_tools import (
     assess_shelter_accessibility,
+    analyze_county_readiness_gaps,
     build_readiness_brief,
+    check_receiving_shelters_live,
     check_shelter_google_maps,
     find_power_dependent_counties,
+    rank_county_evacuation_needs,
+    find_shelter_medical_and_generator_support,
     find_vulnerable_tracts,
     get_shelters,
     identify_risky_shelters,
@@ -53,6 +57,18 @@ Using the screen's context:
 - When CONTEXT v1 has county_fips, pass it as county_fips to the readiness tools rather than
   guessing a county name.
 - When it has shelter_id, call get_shelters([shelter_id]).
+- For granular county questions about which shelters have medical support or an onsite generator,
+  call find_shelter_medical_and_generator_support with county_fips from context when available.
+  Report shelter names and ids with the per-shelter recorded statuses and county-wide counts.
+  Distinguish YES, NO and UNRECORDED. These are registry fields only: medical support and generator
+  presence do not prove current services, a working generator, or availability.
+- For a county readiness brief, use rank_county_evacuation_needs for ranked tract and nursing-home
+  priorities, then analyze_county_readiness_gaps for no-vehicle tracts without a recorded accessible
+  Georgia shelter within the configured straight-line reach, generator gaps, and recorded surge or
+  coastal-flood flags. Explain the ranking reason and the different meanings of those hazard fields.
+  Include the tract mobility, self-care and independent-living estimates when present. Treat tract
+  and nursing-home statistics as aggregate planning proxies, never as identification of individuals
+  who cannot evacuate. emPOWER is county-level, not a local population map.
 - CONTEXT v1 scenario holds affected_county_fips, affected_shelter_ids and receiving_top. The
   receiving list is already ranked by the screen's documented rule (within the reach cutoff,
   capacity first). For questions about receiving or affected shelters, call get_shelters with those
@@ -83,6 +99,11 @@ Tools:
   never through get_shelters.
 - For season-long risk use season_county_risk; for what to fix first use gap_sensitivity.
 - Every number you state comes from a tool. Do not compute or estimate figures yourself.
+- For live checks of scenario receiving sites, check only the top 3 by calling
+  check_receiving_shelters_live with at most 3 shelter IDs. Match each candidate to the registry
+  before describing its listing; report business status and open_now separately. These checks do not
+  prove shelter operations, available beds, or access. Use Google Maps grounding for verified
+  matches and cite its source immediately after the claim.
 - For ad hoc BigQuery access, use only the read-only MCP tool against project `{PROJECT_ID}` and
   dataset `{DATASET_ID}`, tables ending in `_clean`.
 - To judge whether a specific shelter is accessible or still exists, ground that one building with
@@ -141,7 +162,11 @@ root_agent = Agent(
         google_maps_grounding,
         bigquery_mcp,
         find_vulnerable_tracts,
+        rank_county_evacuation_needs,
+        analyze_county_readiness_gaps,
         check_shelter_google_maps,
+        check_receiving_shelters_live,
+        find_shelter_medical_and_generator_support,
         assess_shelter_accessibility,
         find_power_dependent_counties,
         identify_risky_shelters,

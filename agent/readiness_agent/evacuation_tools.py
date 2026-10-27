@@ -9,7 +9,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-from .map_data import SHELTER_COLUMNS, SUSPECT_HIGH, SUSPECT_LOW, shelter_record
+from .map_data import SHELTER_COLUMNS, SUSPECT_HIGH, SUSPECT_LOW, shelter_record, to_flag
 
 load_dotenv()
 
@@ -178,6 +178,139 @@ def find_vulnerable_tracts(
     return {"tracts": tracts, "source": SOURCES["tracts"]}
 
 
+def rank_county_evacuation_needs(
+    state: str = "GA",
+    county: str | None = None,
+    county_fips: str | None = None,
+    limit: int = 10,
+) -> dict[str, Any]:
+    """Rank tract-level evacuation-support needs and nursing-home facility load in a county.
+
+    Tracts rank by households without a vehicle, then modeled mobility/self-care needs, with age
+    and disability estimates shown as context. Nursing homes rank by average residents per day;
+    that is a historical average, not a current census or proof that any individual cannot self-evacuate.
+    """
+    if not county and not county_fips:
+        raise ValueError("Provide county_fips or county.")
+    if not 1 <= limit <= 25:
+        raise ValueError("limit must be between 1 and 25.")
+
+    tract_filters = ["c.state = @state"]
+    facility_filters = ["state = @state"]
+    tract_params = [
+        _scalar("state", "STRING", state.upper()),
+        _scalar("tract_limit", "INT64", limit),
+    ]
+    facility_params = [
+        _scalar("state", "STRING", state.upper()),
+        _scalar("facility_limit", "INT64", limit),
+    ]
+    if county_fips:
+        tract_filters.append("v.county_fips = @tract_county_fips")
+        tract_params.append(_scalar("tract_county_fips", "STRING", county_fips))
+        facility_params.append(_scalar("facility_county_fips", "STRING", county_fips))
+        facility_filters.append("county_fips = @facility_county_fips")
+    if county and not county_fips:
+        tract_filters.append("LOWER(c.county) = LOWER(@tract_county)")
+        tract_params.append(_scalar("tract_county", "STRING", county))
+        facility_filters.append("LOWER(cms_county_text) = LOWER(@facility_county)")
+        facility_params.append(_scalar("facility_county", "STRING", county))
+
+    tracts_sql = f"""
+        SELECT v.geo_id AS tract_id, v.county_fips, v.households_no_vehicle, v.pct_no_vehicle,
+               v.pct_age_65_plus, v.pct_disability, v.pct_mobility, v.pct_selfcare,
+               v.pct_indeplive, v.pct_lacktrpt, v.mobile_homes
+        FROM {_table('vulnerability_tracts')} v
+        JOIN {_table('power_dependent_counties')} c ON c.fips_code = v.county_fips
+        WHERE {" AND ".join(tract_filters)}
+        ORDER BY v.households_no_vehicle DESC, v.pct_selfcare DESC, v.pct_mobility DESC,
+                 v.pct_indeplive DESC, v.pct_no_vehicle DESC
+        LIMIT @tract_limit
+    """
+    facilities_sql = f"""
+        SELECT cms_certification_number_ccn AS facility_id, provider_name, provider_address,
+               citytown, county_fips, avg_residents_per_day, avg_residents_per_day_status,
+               cms_certified_beds, occupancy_rate, coastal_flood_exposed,
+               coastal_flood_exposed_status
+        FROM {_table('care_facilities')}
+        WHERE {" AND ".join(facility_filters)}
+        ORDER BY avg_residents_per_day DESC, coastal_flood_exposed DESC, provider_name
+        LIMIT @facility_limit
+    """
+    tract_rows = _run_query(tracts_sql, params=tract_params)
+    facility_rows = _run_query(facilities_sql, params=facility_params)
+
+    tracts = []
+    for rank, row in enumerate(tract_rows, start=1):
+        households = row.get("households_no_vehicle")
+        age_share = _survey(row.get("pct_age_65_plus"))
+        disability_share = _survey(row.get("pct_disability"))
+        mobility_share = _survey(row.get("pct_mobility"))
+        selfcare_share = _survey(row.get("pct_selfcare"))
+        independent_living_share = _survey(row.get("pct_indeplive"))
+        reasons = []
+        if households is not None:
+            reasons.append(f"{households:g} households without a vehicle")
+        if mobility_share is not None:
+            reasons.append(f"{mobility_share:g}% modeled mobility difficulty")
+        if selfcare_share is not None:
+            reasons.append(f"{selfcare_share:g}% modeled self-care difficulty")
+        if independent_living_share is not None:
+            reasons.append(f"{independent_living_share:g}% modeled independent-living difficulty")
+        if age_share is not None:
+            reasons.append(f"{age_share:g}% age 65+")
+        if disability_share is not None:
+            reasons.append(f"{disability_share:g}% disability estimate")
+        tracts.append({
+            **row,
+            "rank": rank,
+            "pct_age_65_plus": age_share,
+            "pct_disability": disability_share,
+            "pct_mobility": mobility_share,
+            "pct_selfcare": selfcare_share,
+            "pct_indeplive": independent_living_share,
+            "priority_reason": "; ".join(reasons) or "No usable vulnerability estimate recorded",
+        })
+
+    facilities = []
+    for rank, row in enumerate(facility_rows, start=1):
+        residents = row.get("avg_residents_per_day")
+        reasons = (
+            [f"CMS average {residents:g} residents per day"]
+            if residents is not None else ["CMS resident average unrecorded"]
+        )
+        if row.get("coastal_flood_exposed") is True:
+            reasons.append("recorded coastal-flood exposure")
+        facilities.append({
+            **row,
+            "rank": rank,
+            "priority_reason": "; ".join(reasons),
+        })
+
+    return {
+        "county": county,
+        "county_fips": county_fips,
+        "state": state.upper(),
+        "priority_tracts": tracts,
+        "nursing_home_facilities": facilities,
+        "ranking_basis": {
+            "tracts": (
+                "households without a vehicle, then modeled self-care, mobility, and "
+                "independent-living difficulty"
+            ),
+            "facilities": "CMS average residents per day; historical average, not storm-day census",
+        },
+        "source": (
+            f"{SOURCES['tracts']}; CMS nursing-home registry · care_facilities_clean"
+        ),
+        "limitation": (
+            "These aggregate indicators identify planning priorities; they do not identify people "
+            "or establish that any individual cannot self-evacuate. Nursing-home residents per day "
+            "is a CMS historical average."
+        ),
+    }
+
+
 def assess_shelter_accessibility(
     state: str | None = "GA",
     county: str | None = None,
@@ -220,6 +353,344 @@ def assess_shelter_accessibility(
         "shelters": shelters,
         "wheelchair": _flag_counts(shelters, "wheelchair_accessible"),
         "source": SOURCES["shelters"],
+    }
+
+
+def find_shelter_medical_and_generator_support(
+    county_fips: str | None = None,
+    county: str | None = None,
+    state: str = "GA",
+    limit: int = 100,
+) -> dict[str, Any]:
+    """Return county shelters' recorded medical-support and generator flags.
+
+    Requires a county name or county FIPS. Counts cover every shelter in the county;
+    shelter details are limited to `limit`. UNRECORDED means the registry is blank,
+    not that support is unavailable. Generator presence does not establish current
+    operation or access.
+    """
+    if not county_fips and not county:
+        raise ValueError("Provide county_fips or county for a granular shelter lookup.")
+    if not 1 <= limit <= 100:
+        raise ValueError("limit must be between 1 and 100.")
+
+    filters = ["state = @state"]
+    params = [
+        _scalar("state", "STRING", state.upper()),
+        _scalar("limit", "INT64", limit),
+    ]
+    if county:
+        filters.append("LOWER(county_name) = LOWER(@county)")
+        params.append(_scalar("county", "STRING", county))
+    if county_fips:
+        filters.append("county_fips = @county_fips")
+        params.append(_scalar("county_fips", "STRING", county_fips))
+
+    sql = f"""
+        SELECT
+          shelter_id, shelter_name, address_1, city, zip, county_fips, county_name,
+          population_code, is_medical, generator_onsite,
+          COUNT(*) OVER() AS total_shelters,
+          COUNTIF(population_code IS NOT NULL AND is_medical IS TRUE) OVER() AS medical_yes,
+          COUNTIF(population_code IS NOT NULL AND is_medical IS FALSE) OVER() AS medical_no,
+          COUNTIF(population_code IS NULL OR is_medical IS NULL) OVER() AS medical_unrecorded,
+          COUNTIF(generator_onsite IS TRUE) OVER() AS generator_yes,
+          COUNTIF(generator_onsite IS FALSE) OVER() AS generator_no,
+          COUNTIF(generator_onsite IS NULL) OVER() AS generator_unrecorded
+        FROM {_table('shelters')}
+        WHERE {" AND ".join(filters)}
+        ORDER BY shelter_name, shelter_id
+        LIMIT @limit
+    """
+
+    rows = _run_query(sql, params=params)
+    shelters = []
+    for row in rows:
+        address = ", ".join(
+            str(part) for part in (row.get("address_1"), row.get("city"), row.get("zip")) if part
+        )
+        medical = (
+            "UNRECORDED"
+            if row.get("population_code") is None
+            else "YES" if row.get("is_medical") is True
+            else "NO" if row.get("is_medical") is False
+            else "UNRECORDED"
+        )
+        shelters.append(
+            {
+                "shelter_id": str(row["shelter_id"]),
+                "name": row.get("shelter_name") or "(unnamed)",
+                "address": address,
+                "county_fips": str(row["county_fips"]) if row.get("county_fips") else None,
+                "county_name": row.get("county_name"),
+                "medical_support": medical,
+                "generator_onsite": (
+                    "YES" if row.get("generator_onsite") is True
+                    else "NO" if row.get("generator_onsite") is False
+                    else "UNRECORDED"
+                ),
+            }
+        )
+
+    counts = {
+        "medical_support": {"yes": 0, "no": 0, "unrecorded": 0},
+        "generator_onsite": {"yes": 0, "no": 0, "unrecorded": 0},
+    }
+    if rows:
+        first = rows[0]
+        counts["medical_support"] = {
+            "yes": first["medical_yes"],
+            "no": first["medical_no"],
+            "unrecorded": first["medical_unrecorded"],
+        }
+        counts["generator_onsite"] = {
+            "yes": first["generator_yes"],
+            "no": first["generator_no"],
+            "unrecorded": first["generator_unrecorded"],
+        }
+
+    return {
+        "shelters": shelters,
+        "total_shelters": rows[0]["total_shelters"] if rows else 0,
+        "returned_shelters": len(shelters),
+        "counts": counts,
+        "source": SOURCES["shelters"],
+        "limitation": (
+            "These are FEMA registry records, not confirmation of current medical services "
+            "or a working, available generator. UNRECORDED means no value was recorded."
+        ),
+    }
+
+
+def analyze_county_readiness_gaps(
+    county_fips: str,
+    reach_km: float = 80,
+    detail_limit: int = 25,
+) -> dict[str, Any]:
+    """Find tract-level access gaps, generator record gaps, and recorded flood/surge exposure.
+
+    The reach threshold is straight-line distance, not a drive-time or evacuation standard.
+    Power-dependent counts are county-level and cannot locate people within the county.
+    """
+    if not county_fips:
+        raise ValueError("county_fips is required.")
+    if not 25 <= reach_km <= 200:
+        raise ValueError("reach_km must be between 25 and 200.")
+    if not 1 <= detail_limit <= 100:
+        raise ValueError("detail_limit must be between 1 and 100.")
+
+    param = _scalar("county_fips", "STRING", county_fips)
+    tracts_sql = f"""
+        SELECT v.geo_id AS tract_id, v.county_fips, p.county AS county_name,
+               v.households_no_vehicle, v.pct_no_vehicle, v.pct_age_65_plus,
+               v.pct_disability, v.lat, v.lon
+        FROM {_table('vulnerability_tracts')} v
+        JOIN {_table('power_dependent_counties')} p ON p.fips_code = v.county_fips
+        WHERE v.county_fips = @county_fips
+        ORDER BY v.households_no_vehicle DESC
+    """
+    county_shelters_sql = f"""
+        SELECT {", ".join(SHELTER_COLUMNS)}
+        FROM {_shelters_with_surge_fallback()} AS s
+        WHERE s.state = 'GA' AND s.county_fips = @county_fips
+    """
+    state_shelters_sql = f"""
+        SELECT {", ".join(SHELTER_COLUMNS)}
+        FROM {_shelters_with_surge_fallback()} AS s
+        WHERE s.state = 'GA' AND s.latitude IS NOT NULL AND s.longitude IS NOT NULL
+    """
+    facilities_sql = f"""
+        SELECT cms_certification_number_ccn AS facility_id, provider_name, provider_address,
+               citytown, county_fips, avg_residents_per_day, avg_residents_per_day_status,
+               coastal_flood_exposed, coastal_flood_exposed_status
+        FROM {_table('care_facilities')}
+        WHERE state = 'GA' AND county_fips = @county_fips
+        ORDER BY coastal_flood_exposed DESC, avg_residents_per_day DESC, provider_name
+    """
+    query_params = [param]
+    tract_rows = _run_query(tracts_sql, params=query_params)
+    county_shelter_rows = _run_query(county_shelters_sql, params=query_params)
+    county_shelters = [
+        shelter_record(row)
+        for row in county_shelter_rows
+        if row.get("latitude") is not None and row.get("longitude") is not None
+    ]
+    state_shelters = [
+        shelter_record(row) for row in _run_query(state_shelters_sql)
+    ]
+    facility_rows = _run_query(facilities_sql, params=query_params)
+    power_rows = find_power_dependent_counties(county_fips=county_fips, state="GA", limit=1)["counties"]
+
+    access_gaps = []
+    tract_access = []
+    tracts_with_households = 0
+    households_without_reach = 0.0
+    for row in tract_rows:
+        households = row.get("households_no_vehicle")
+        if households is None or households <= 0:
+            continue
+        tracts_with_households += 1
+        lat, lon = row.get("lat"), row.get("lon")
+        accessible_distances = []
+        if lat is not None and lon is not None:
+            for shelter in state_shelters:
+                if shelter["wheelchair_accessible"] != "YES":
+                    continue
+                distance = _distance_meters(
+                    float(lat), float(lon), shelter["lat"], shelter["lon"]
+                ) / 1000
+                accessible_distances.append((distance, shelter))
+        if accessible_distances:
+            nearest_distance, nearest_shelter = min(accessible_distances, key=lambda item: item[0])
+            nearest = {
+                "shelter_id": nearest_shelter["shelter_id"],
+                "name": nearest_shelter["name"],
+                "distance_km": round(nearest_distance, 1),
+            }
+        else:
+            nearest = None
+            nearest_distance = None
+        within_reach = nearest_distance is not None and nearest_distance <= reach_km
+        if not within_reach:
+            households_without_reach += float(households)
+            access_gaps.append({
+                "tract_id": str(row["tract_id"]),
+                "county_fips": str(row["county_fips"]),
+                "households_no_vehicle": households,
+                "priority_reason": (
+                    f"{households:g} households without a vehicle; nearest registry-recorded "
+                    f"wheelchair-accessible shelter is {nearest_distance:.1f} km away, beyond "
+                    f"the {reach_km:g} km planning threshold"
+                    if nearest_distance is not None
+                    else f"{households:g} households without a vehicle; no registry-recorded "
+                    f"wheelchair-accessible shelter found in Georgia"
+                    if lat is not None and lon is not None
+                    else f"{households:g} households without a vehicle; tract coordinates unrecorded"
+                ),
+            })
+        tract_access.append({
+            "tract_id": str(row["tract_id"]),
+            "county_fips": str(row["county_fips"]),
+            "households_no_vehicle": households,
+            "nearest_accessible_shelter": nearest,
+            "within_reach": within_reach,
+        })
+
+    access_gaps_total = len(access_gaps)
+    access_gaps.sort(
+        key=lambda item: (
+            item["households_no_vehicle"] is None,
+            -(item["households_no_vehicle"] or 0),
+        )
+    )
+    access_gaps = access_gaps[:detail_limit]
+    tract_access.sort(key=lambda item: -(item["households_no_vehicle"] or 0))
+    county_flag_counts = {
+        key: {
+            "yes": sum(to_flag(row.get(key)) == "YES" for row in county_shelter_rows),
+            "no": sum(to_flag(row.get(key)) == "NO" for row in county_shelter_rows),
+            "unrecorded": sum(
+                to_flag(row.get(key)) == "UNRECORDED" for row in county_shelter_rows
+            ),
+        }
+        for key in ("wheelchair_accessible", "generator_onsite", "in_surge_slosh_area")
+    }
+    generator_gaps = [
+        {
+            "shelter_id": str(row["shelter_id"]),
+            "name": row.get("shelter_name") or "(unnamed)",
+            "county_fips": str(row["county_fips"]) if row.get("county_fips") else None,
+            "generator_onsite": to_flag(row.get("generator_onsite")),
+        }
+        for row in county_shelter_rows
+        if to_flag(row.get("generator_onsite")) != "YES"
+    ]
+    generator_gaps.sort(
+        key=lambda item: (
+            item["generator_onsite"] != "NO",
+            item["name"],
+        )
+    )
+
+    surge_yes = [
+        {
+            "shelter_id": str(row["shelter_id"]),
+            "name": row.get("shelter_name") or "(unnamed)",
+            "in_surge_slosh_area": to_flag(row.get("in_surge_slosh_area")),
+        }
+        for row in county_shelter_rows
+        if to_flag(row.get("in_surge_slosh_area")) == "YES"
+    ]
+    surge_unknown = sum(
+        to_flag(row.get("in_surge_slosh_area")) == "UNRECORDED"
+        for row in county_shelter_rows
+    )
+    flood_facilities = [
+        {
+            "facility_id": row["facility_id"],
+            "name": row["provider_name"],
+            "coastal_flood_exposed": row.get("coastal_flood_exposed"),
+            "exposure_status": row.get("coastal_flood_exposed_status"),
+        }
+        for row in facility_rows
+        if row.get("coastal_flood_exposed") is True
+    ]
+    power_count = power_rows[0].get("power_dependent_dme") if power_rows else None
+
+    return {
+        "county_fips": county_fips,
+        "reach_km": reach_km,
+        "distance_method": "straight-line from census-tract centroid; not drive time",
+        "accessibility_gaps": {
+            "tracts_with_no_vehicle_households": tracts_with_households,
+            "tracts_without_accessible_destination_within_reach": access_gaps_total,
+            "households_no_vehicle_in_all_access_gaps": households_without_reach,
+            "top_gaps": access_gaps,
+            "top_tract_destinations": tract_access[:detail_limit],
+            "detail_limit": detail_limit,
+            "total_gap_count_may_exceed_returned_details": access_gaps_total > detail_limit,
+        },
+        "generator_gaps": {
+            "shelter_count": len(generator_gaps),
+            "shelters": generator_gaps[:detail_limit],
+            "counts": _flag_counts(county_shelters, "generator_onsite"),
+            "county_power_dependent_dme": power_count,
+            "interpretation": (
+                "emPOWER is county-level; this does not establish that the listed shelters are "
+                "near power-dependent residents. A missing generator flag is not proof of no generator."
+            ),
+        },
+        "flood_and_surge_gaps": {
+            "shelters_recorded_in_surge_zone": surge_yes,
+            "shelter_surge_counts": _flag_counts(county_shelters, "in_surge_slosh_area"),
+            "shelters_surge_status_unrecorded": surge_unknown,
+            "nursing_home_count": len(facility_rows),
+            "nursing_homes_recorded_coastal_flood_exposed": flood_facilities[:detail_limit],
+            "nursing_homes_generator_unrecorded": len(facility_rows),
+            "nursing_home_generator_status": (
+                "UNRECORDED: care_facilities_clean contains no generator field"
+            ),
+            "interpretation": (
+                "The shelter surge flag and nursing-home coastal-flood field are different "
+                "registry measures; neither is a storm-specific inundation forecast."
+            ),
+        },
+        "county_shelter_count": len(county_shelter_rows),
+        "county_flag_counts": county_flag_counts,
+        "sources": [
+            SOURCES["tracts"],
+            SOURCES["shelters"],
+            SOURCES["power"],
+            "CMS nursing-home registry · care_facilities_clean",
+        ],
+        "limitation": (
+            "The analysis covers Georgia shelters only; cross-state destinations are not included. "
+            "Straight-line distance is not a travel route or an evacuation safety standard."
+        ),
+        "recommendation": (
+            "Verify evacuation access in the listed tracts; confirm generator status at shelters "
+            "and nursing homes; review facilities with recorded coastal-flood exposure before the season."
+        ),
     }
 
 
@@ -381,6 +852,20 @@ def _check_shelter_google_maps(shelter_id: str) -> dict[str, Any]:
     return {
         "shelter_id": shelter["shelter_id"],
         "shelter_name": shelter["name"],
+        "registry_record": {
+            "shelter_id": shelter["shelter_id"],
+            "name": shelter["name"],
+            "address": shelter["address"],
+            "county_fips": shelter.get("county_fips"),
+            "county_name": shelter.get("county_name"),
+            "evacuation_capacity": shelter.get("evacuation_capacity"),
+            "post_impact_capacity": shelter.get("post_impact_capacity"),
+            "wheelchair_accessible": shelter.get("wheelchair_accessible", "UNRECORDED"),
+            "generator_onsite": shelter.get("generator_onsite", "UNRECORDED"),
+            "is_medical": shelter.get("is_medical", "UNRECORDED"),
+            "in_surge_slosh_area": shelter.get("in_surge_slosh_area", "UNRECORDED"),
+            "quality_flags": shelter.get("quality_flags", []),
+        },
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "candidates": candidates,
         "registry_source": SOURCES["shelters"],
@@ -389,6 +874,33 @@ def _check_shelter_google_maps(shelter_id: str) -> dict[str, Any]:
             "Google Maps business status and opening hours describe the place listing, not "
             "emergency shelter operations, available beds, or storm-time availability. "
             "Verify the candidate name, address, and distance; an ambiguous or missing match is unknown."
+        ),
+    }
+
+
+def check_receiving_shelters_live(shelter_ids: list[str]) -> dict[str, Any]:
+    """Fetch live Google Maps listing candidates for up to three receiving shelters.
+
+    Candidate listings require identity review against each registry name, address, and location.
+    A business listing being open does not prove that the shelter is operating or has capacity.
+    """
+    if not shelter_ids:
+        raise ValueError("Provide at least one shelter_id.")
+    if len(shelter_ids) > 3:
+        raise ValueError(f"At most 3 shelter ids per live batch; got {len(shelter_ids)}.")
+
+    checks = [
+        check_shelter_google_maps(str(shelter_id))
+        for shelter_id in dict.fromkeys(shelter_ids)
+    ]
+    return {
+        "checks": checks,
+        "checked_count": len(checks),
+        "source": "Google Maps · Places API (live listing; checked just now)",
+        "identity_status": "Candidate matching is not automated; review each listing against registry details.",
+        "limitation": (
+            "Google Maps verifies business listings, not emergency shelter operations, "
+            "bed availability, or storm-time access. Do not call a shelter open based only on open_now."
         ),
     }
 
@@ -723,6 +1235,20 @@ def build_readiness_brief(
     shelters = assess_shelter_accessibility(**where, limit=shelter_limit)
     power = find_power_dependent_counties(**where, limit=5)
     risk = identify_risky_shelters(**where, limit=shelter_limit)
+    evacuation_needs = rank_county_evacuation_needs(
+        state=state,
+        county=county,
+        county_fips=county_fips,
+        limit=min(25, max(shelter_limit, tract_limit)),
+    )
+    resolved_county_fips = county_fips
+    if not resolved_county_fips and power["counties"]:
+        resolved_county_fips = power["counties"][0].get("county_fips")
+    readiness_gaps = (
+        analyze_county_readiness_gaps(resolved_county_fips)
+        if resolved_county_fips
+        else None
+    )
     to_verify = shelters["shelters"]
 
     return {
@@ -730,18 +1256,50 @@ def build_readiness_brief(
         "county": county,
         "county_fips": county_fips,
         "vulnerable_tracts": vulnerable["tracts"],
+        "evacuation_needs": evacuation_needs,
         "shelters_to_verify": to_verify,
+        "readiness_gaps": readiness_gaps,
         "medical_dependency": power["counties"],
         "shelter_risk_and_capacity": risk,
         "sources": {
             "vulnerable_tracts": vulnerable["source"],
+            "evacuation_needs": evacuation_needs["source"],
             "shelters_to_verify": shelters["source"],
             "medical_dependency": power["source"],
         },
         "could_not_tell": {
-            "wheelchair_unrecorded": _flag_counts(to_verify, "wheelchair_accessible")["unrecorded"],
-            "generator_unrecorded": _flag_counts(to_verify, "generator_onsite")["unrecorded"],
+            "wheelchair_unrecorded": (
+                readiness_gaps["county_flag_counts"]["wheelchair_accessible"]["unrecorded"]
+                if readiness_gaps else _flag_counts(to_verify, "wheelchair_accessible")["unrecorded"]
+            ),
+            "generator_unrecorded": (
+                readiness_gaps["county_flag_counts"]["generator_onsite"]["unrecorded"]
+                if readiness_gaps else _flag_counts(to_verify, "generator_onsite")["unrecorded"]
+            ),
             "shelters_considered": len(to_verify),
+            "tracts_without_accessible_destination_within_reach": (
+                readiness_gaps["accessibility_gaps"][
+                    "tracts_without_accessible_destination_within_reach"
+                ]
+                if readiness_gaps else None
+            ),
+            "households_no_vehicle_in_access_gaps": (
+                readiness_gaps["accessibility_gaps"]["households_no_vehicle_in_all_access_gaps"]
+                if readiness_gaps else None
+            ),
+            "nursing_homes_without_generator_records": (
+                readiness_gaps["flood_and_surge_gaps"]["nursing_homes_generator_unrecorded"]
+                if readiness_gaps else None
+            ),
+            "shelters_not_live_checked": (
+                readiness_gaps["county_shelter_count"] if readiness_gaps else None
+            ),
+            "nursing_home_generator_status": (
+                "UNRECORDED for all facilities; care_facilities_clean has no generator column"
+            ),
+            "live_destination_status": (
+                "Not verified by the static brief; use check_receiving_shelters_live for scenario destinations"
+            ),
             "notes": [
                 "Distances are straight-line; drive times are not included.",
                 "emPOWER is county-level: it says how many, never which block.",

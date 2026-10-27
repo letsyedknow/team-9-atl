@@ -13,6 +13,46 @@ Everything reads dataset `evac_prod` (`EVAC_DATASET`). The runtime identity need
 `roles/mcp.toolUser`, `roles/bigquery.jobUser`, `roles/bigquery.dataViewer` and `roles/aiplatform.user`;
 `deploy/setup_gcp.sh` grants them to the Cloud Run service account. Deployment: `deploy/README.md`.
 
+## Medical support and generator records
+
+For granular county questions, `find_shelter_medical_and_generator_support`
+returns shelter names, IDs, addresses, per-shelter medical-support and
+`generator_onsite` statuses, and county-wide counts for YES, NO, and
+UNRECORDED. Pass the county FIPS when available; the tool requires a county
+name or FIPS and returns up to 100 shelter details while keeping counts over
+the full county.
+
+These are FEMA registry records from `shelters_clean`, not live verification.
+An UNRECORDED value means no value was entered, not NO. A medical-support flag
+does not identify specific services, and a generator-on-site flag does not
+confirm that the generator is working or available.
+
+## County evacuation priorities and readiness gaps
+
+`rank_county_evacuation_needs` returns ranked census tracts by households
+without a vehicle, then modeled mobility, self-care and independent-living
+difficulty, with age and disability estimates as context. It ranks nursing
+homes by CMS average residents per day. These are aggregate planning proxies:
+they do not identify people or prove that a person cannot self-evacuate.
+
+`analyze_county_readiness_gaps` takes a county FIPS and a straight-line reach
+threshold (25–200 km; default 80 km, matching the scenario cutoff). It finds
+tracts with households without a vehicle but no shelter recorded as
+wheelchair-accessible within that distance; lists nearby accessible
+destinations for other high-priority tracts; and reports shelter generator
+gaps plus recorded shelter surge and nursing-home coastal-flood exposure.
+Distances use census-tract centroids and Georgia shelters only; this is not
+drive time or an evacuation safety standard. emPOWER power-dependence counts
+are county-level, so the tool does not claim that a particular shelter or
+facility is near those residents. The nursing-home table does not include
+generator status.
+
+For live checks of up to 3 receiving shelters, `check_receiving_shelters_live`
+fetches current Google Places candidates. Compare each candidate’s name,
+address, and distance with its registry record; use Google Maps grounding to
+confirm identity and cite the source. A listing marked open is not proof that
+the shelter is operating, has space, or is safe to reach.
+
 ## Live Google Maps shelter checks
 
 `check_shelter_google_maps(shelter_id)` reads the shelter's `latitude` and

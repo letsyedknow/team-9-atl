@@ -80,7 +80,10 @@ result carries a `source` naming its dataset and table (Constitution III):
 | `get_shelters(shelter_ids)` | `{shelters: shelter_record[], source}`, in the order given, at most 25 | The `CONTEXT v1` `shelter_id`, scenario `receiving_top` and `affected_shelter_ids` |
 | `find_vulnerable_tracts(state, county, county_fips, limit)` | `{tracts: [...], source}` | Highlighting (`county_fips`) |
 | `find_power_dependent_counties(state, county, county_fips, limit)` | `{counties: [...], source}` | Highlighting (`county_fips`). County-level only |
-| `build_readiness_brief(state, county, county_fips, …)` | `{vulnerable_tracts, shelters_to_verify, medical_dependency, sources, could_not_tell}` | Highlighting, counted "what we could not tell you" |
+| `rank_county_evacuation_needs(state, county, county_fips, limit)` | `{priority_tracts, nursing_home_facilities, ranking_basis, source}` | Ranked, aggregate planning indicators (no-vehicle households, mobility/self-care estimates, nursing-home resident averages) with a reason for each row |
+| `analyze_county_readiness_gaps(county_fips, reach_km, detail_limit)` | `{accessibility_gaps, generator_gaps, flood_and_surge_gaps, sources}` | Straight-line tract-to-shelter access, county generator/hazard gaps; emPOWER remains county-level |
+| `check_receiving_shelters_live(shelter_ids)` | `{checks, source, identity_status, limitation}` | Live Places candidates for up to 10 shelters; identity requires review and open listing is not shelter availability |
+| `build_readiness_brief(state, county, county_fips, …)` | `{vulnerable_tracts, evacuation_needs, shelters_to_verify, readiness_gaps, medical_dependency, sources, could_not_tell}` | Full county brief inputs and counted unknowns; static brief does not itself live-verify destinations |
 | `record_live_check(shelter_id, status, place_id)` | `{live_check: {...}}` | The discrepancy marker (spec edge case, FR-008) |
 
 `shelter_record` is the same shape as a map-data `Shelter` (`agent/readiness_agent/map_data.py`),
