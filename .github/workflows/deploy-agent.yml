@@ -1,0 +1,32 @@
+name: Deploy agent to Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - agent/**
+      - deploy/**
+      - Dockerfile
+      - .dockerignore
+      - .github/workflows/deploy-agent.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-agent
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: deploy/deploy.sh "${GITHUB_SHA::12}"

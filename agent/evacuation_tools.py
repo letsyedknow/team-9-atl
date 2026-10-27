@@ -1,12 +1,12 @@
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
 DEFAULT_PROJECT_ID = "qwiklabs-gcp-04-edc952746633"
-DEFAULT_DATASET = "evacuation_readiness"
+DEFAULT_DATASET = "evac_prod"
 
 
 def _dataset_name() -> str:
@@ -32,7 +32,7 @@ def _bigquery_client():
     return bigquery.Client(project=_project_id())
 
 
-def _run_query(sql: str, params: Optional[List[Any]] = None) -> List[Dict[str, Any]]:
+def _run_query(sql: str, params: list[Any] | None = None) -> list[dict[str, Any]]:
     try:
         from google.cloud import bigquery
     except ImportError as exc:  # pragma: no cover
@@ -50,10 +50,10 @@ def _run_query(sql: str, params: Optional[List[Any]] = None) -> List[Dict[str, A
 
 
 def find_vulnerable_tracts(
-    state: Optional[str] = None,
-    county: Optional[str] = None,
+    state: str | None = None,
+    county: str | None = None,
     limit: int = 10,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Return the tracts with the highest vulnerability indicators for no-vehicle households and age/disability risk."""
     try:
         from google.cloud import bigquery
@@ -62,39 +62,31 @@ def find_vulnerable_tracts(
             "google-cloud-bigquery is required. Install dependencies from agent/requirements.txt."
         ) from exc
 
-    shelter_table = f"`{_project_id()}.{_dataset_name()}.{_table_name('shelters')}`"
+    county_table = f"`{_project_id()}.{_dataset_name()}.{_table_name('power_dependent_counties')}`"
     tract_table = f"`{_project_id()}.{_dataset_name()}.{_table_name('vulnerability_tracts')}`"
 
     filters = []
     if state:
-        filters.append("state = @state")
+        filters.append("c.state = @state")
     if county:
-        filters.append("LOWER(county_name) = LOWER(@county)")
-    shelter_filter = " AND ".join(filters)
-    county_filter = ""
-    if shelter_filter:
-        county_filter = (
-            "WHERE county_fips IN ("
-            f"SELECT DISTINCT county_fips FROM {shelter_table} "
-            f"WHERE {shelter_filter}"
-            ")"
-        )
+        filters.append("LOWER(c.county) = LOWER(@county)")
+    where_clause = "WHERE " + " AND ".join(filters) if filters else ""
 
     sql = f"""
         SELECT
-          geo_id AS tract_id,
-          county_fips,
-          (SELECT county_name FROM {shelter_table} WHERE county_fips = v.county_fips LIMIT 1)
-            AS county_name,
-          households_no_vehicle,
-          pct_no_vehicle,
-          pct_age_65_plus,
-          pct_disability,
-          mobile_homes,
-          ST_GEOGPOINT(lon, lat) AS geo
+          v.geo_id AS tract_id,
+          v.county_fips,
+          c.county AS county_name,
+          v.households_no_vehicle,
+          v.pct_no_vehicle,
+          v.pct_age_65_plus,
+          v.pct_disability,
+          v.mobile_homes,
+          ST_GEOGPOINT(v.lon, v.lat) AS geo
         FROM {tract_table} v
-        {county_filter}
-        ORDER BY households_no_vehicle DESC, pct_no_vehicle DESC, pct_age_65_plus DESC
+        JOIN {county_table} c ON c.fips_code = v.county_fips
+        {where_clause}
+        ORDER BY v.households_no_vehicle DESC, v.pct_no_vehicle DESC, v.pct_age_65_plus DESC
         LIMIT @limit
     """
 
@@ -108,10 +100,10 @@ def find_vulnerable_tracts(
 
 
 def assess_shelter_accessibility(
-    state: Optional[str] = None,
-    county: Optional[str] = None,
+    state: str | None = None,
+    county: str | None = None,
     limit: int = 10,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Return shelters ranked by accessibility gap and readiness concern across a county or state."""
     try:
         from google.cloud import bigquery
@@ -162,10 +154,10 @@ def assess_shelter_accessibility(
 
 
 def find_power_dependent_counties(
-    state: Optional[str] = None,
-    county: Optional[str] = None,
+    state: str | None = None,
+    county: str | None = None,
     limit: int = 10,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Return counties ranked by electricity-dependent medical-equipment demand."""
     try:
         from google.cloud import bigquery
@@ -213,7 +205,7 @@ def build_readiness_brief(
     county: str,
     shelter_limit: int = 5,
     tract_limit: int = 5,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Construct a concise readiness brief containing the biggest risk tracts and the shelters most in need of verification."""
     if not state or not county:
         raise ValueError("Both state and county are required.")
@@ -234,11 +226,3 @@ def build_readiness_brief(
         ),
     }
 
-
-def function_tool(fn):
-    """Wrap a Python function as an ADK tool if the SDK is installed."""
-    try:
-        from google.adk.tools import FunctionTool
-    except ImportError:  # pragma: no cover
-        return fn
-    return FunctionTool(func=fn)

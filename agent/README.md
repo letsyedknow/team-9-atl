@@ -1,6 +1,10 @@
-# Your agent goes here
+# Evacuation readiness agent
 
-This folder is empty on purpose.
+`agent.py` defines `root_agent`: Gemini 3 with Google Maps grounding and the BigQuery tools in `evacuation_tools.py`, reading dataset `evac_prod`. It runs on Cloud Run; see `deploy/README.md` for the live URL, local runs and deployment.
+
+## Challenge brief
+
+The rest of this file is the challenge packet's guidance for this folder.
 
 We built the on-ramp: every registered shelter in your state with capacity and accessibility, the
 census tracts around them with disability, vehicle access and age, the counties where people depend
