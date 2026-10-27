@@ -1,15 +1,11 @@
 import { useCallback, useEffect } from "react";
 import { loadMapData } from "./lib/agentClient";
 import { useStore } from "./state/store";
-import { ScenarioProvider, useScenario } from "./state/scenario";
+import { ScenarioProvider } from "./state/scenario";
 import MapView from "./components/map/MapView";
 import Legend from "./components/map/Legend";
-import CountySummary from "./components/summary/CountySummary";
-import ShelterDetails from "./components/summary/ShelterDetails";
-import CouldNotTell from "./components/summary/CouldNotTell";
 import ScenarioControls from "./components/scenario/ScenarioControls";
-import AffectedSummary from "./components/scenario/AffectedSummary";
-import ReceivingList from "./components/scenario/ReceivingList";
+import DetailsPanel from "./components/summary/DetailsPanel";
 import ChatPanel from "./components/chat/ChatPanel";
 
 function DataBanner({ onRetry }: { onRetry: () => void }) {
@@ -29,23 +25,6 @@ function DataBanner({ onRetry }: { onRetry: () => void }) {
         </>
       )}
     </div>
-  );
-}
-
-function SidePanel() {
-  const { state } = useStore();
-  const scenario = useScenario();
-  return (
-    <aside className="side" aria-label="Details">
-      {state.selectedShelterId ? <ShelterDetails /> : <CountySummary />}
-      {scenario && (
-        <>
-          <AffectedSummary />
-          <ReceivingList />
-        </>
-      )}
-      <CouldNotTell />
-    </aside>
   );
 }
 
@@ -82,7 +61,7 @@ export default function App() {
             <MapView />
             <Legend />
           </section>
-          <SidePanel />
+          <DetailsPanel />
           <ChatPanel />
         </main>
       </div>

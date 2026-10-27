@@ -46,9 +46,7 @@ export function ReceivingListView({
                 <th>Shelter</th>
                 <th>Capacity</th>
                 <th title="Distance (straight-line)">km*</th>
-                <th>Wheelchair</th>
-                <th>Generator</th>
-                <th>Surge</th>
+                <th>Records</th>
               </tr>
             </thead>
             <tbody>
@@ -63,19 +61,23 @@ export function ReceivingListView({
                   </td>
                   <td>{s.evacuation_capacity === null ? "Not recorded" : formatNumber(s.evacuation_capacity)}</td>
                   <td>{Math.round(r.distance_km.value ?? 0)} km</td>
-                  <td>
-                    <span className={flagClass(s.wheelchair_accessible)}>{flagLabel(s.wheelchair_accessible)}</span>
-                  </td>
-                  <td>
-                    <span className={flagClass(s.generator_onsite)}>{flagLabel(s.generator_onsite)}</span>
-                  </td>
-                  <td>
-                    <span className={flagClass(s.in_surge_slosh_area)}>{flagLabel(s.in_surge_slosh_area)}</span>
+                  <td className="receiving__flags">
+                    {(
+                      [
+                        ["Wheelchair", s.wheelchair_accessible],
+                        ["Generator", s.generator_onsite],
+                        ["Surge zone", s.in_surge_slosh_area],
+                      ] as const
+                    ).map(([label, f]) => (
+                      <div key={label}>
+                        <span className="muted">{label}</span> <span className={flagClass(f)}>{flagLabel(f)}</span>
+                      </div>
+                    ))}
                   </td>
                 </tr>
                 <tr onClick={() => onSelect(s.shelter_id)} className="receiving__reason">
                   <td />
-                  <td colSpan={6}>{r.reason}</td>
+                  <td colSpan={4}>{r.reason}</td>
                 </tr>
                 </Fragment>
               ))}

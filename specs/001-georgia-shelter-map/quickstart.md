@@ -85,7 +85,8 @@ the service in Cloud Run logs (FR-023).
 
 ## 5. Manual acceptance walk-through (the demo path, SC-007)
 
-1. Open the app. County outlines appear at once, and markers appear within 20 s.
+1. Open the app. County outlines appear at once, and markers appear within 20 s. The details panel
+   is collapsed to a "Details ▸" rail; open it before the next steps.
 2. Hover over Cobb, then Chatham. Each summary shows Yes / No / Not recorded counts and three people
    figures with their sources.
 3. Hover over Jackson County. The Commerce shelters are flagged, and two totals are shown.
