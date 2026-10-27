@@ -1,0 +1,79 @@
+{
+  "care_facilities": {
+    "avg_residents_per_day": 31820.8,
+    "cms_certified_beds": 39462.0,
+    "cms_county_text_disagrees_with_imputed_fips": 11,
+    "in_coastal_flood_tract": 25,
+    "in_top_quintile_hurricane_tract": 108,
+    "median_km_nearest_medical_shelter_pending": 52.1143,
+    "occupancy_rate": 0.8084,
+    "occupancy_unrecorded": 2,
+    "snapshot_certified_beds": 39494.0
+  },
+  "dialysis_centers": {
+    "coordinates_confidence": {
+      "geocoded_census_exact": 242,
+      "geocoded_census_non_exact": 81,
+      "unmatched": 32
+    },
+    "stations_without_coordinates": 505
+  },
+  "hazard_tracts": {
+    "cfld_imputed_outside_layer": 2588,
+    "coastal_flood_exposed": 182,
+    "nri_population": 10695030.0,
+    "vulnerability_tracts_without_hazard_row": 5,
+    "without_vulnerability_tract": 0
+  },
+  "overture_places": {
+    "ambulance_ems": {
+      "not_permanently_closed": 258,
+      "places": 272
+    },
+    "assisted_living": {
+      "not_permanently_closed": 421,
+      "places": 443
+    },
+    "home_health": {
+      "not_permanently_closed": 2037,
+      "places": 2064
+    },
+    "hospice": {
+      "not_permanently_closed": 375,
+      "places": 388
+    },
+    "medical_transport": {
+      "not_permanently_closed": 40,
+      "places": 40
+    },
+    "retirement_home": {
+      "not_permanently_closed": 1646,
+      "places": 1651
+    }
+  },
+  "power_dependent_counties": {
+    "counties_suppressed_1_11": {
+      "any_service": 0,
+      "dialysis": 9,
+      "home_health": 13,
+      "hospice": 44,
+      "medicare_benes": 0,
+      "oxygen": 6,
+      "power_dependent": 0
+    },
+    "dialysis_centers": 355,
+    "dialysis_live": 18026,
+    "dialysis_patients_per_station": 3.0265,
+    "dialysis_stations": 5956,
+    "facility_esrd_dialysis_any_dme_snapshot": 6009.0,
+    "power_dependent_live": 106561,
+    "power_dependent_snapshot": 92567.0
+  },
+  "rows": {
+    "care_facilities": 356,
+    "dialysis_centers": 355,
+    "hazard_tracts": 2791,
+    "overture_places": 4858,
+    "power_dependent_counties": 159
+  }
+}

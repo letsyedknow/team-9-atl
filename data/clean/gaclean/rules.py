@@ -1,0 +1,53 @@
+STATUSES = ("recorded", "unrecorded", "imputed", "assumption", "suspect", "external")
+
+PROJ = "'EPSG:4326', 'EPSG:32617', always_xy := true"
+
+RULES = {
+    "source_value": "Value as published by the source; no transformation.",
+    "nullif_trim": "Blank or whitespace-only strings are null (unrecorded), never a value.",
+    "nearest_tract_centroid": "Assigned to the tract whose 2020 centroid is nearest (straight line, UTM 17N).",
+    "fips_from_geo_id": "County FIPS = first five digits of the 2020 tract geo_id.",
+    "cfld_null_outside_layer": (
+        "CFLD_EXPP null means the tract is outside NRI's coastal-flood layer: cfld_expp_clean = 0, status "
+        "imputed. The source column is unchanged."),
+    "hrcn_ealp_percentile": (
+        "Canonical hurricane exposure: percent rank (0-1) of NRI HRCN_EALP, expected annual population loss, "
+        "among Georgia hazard rows. HRCN_AFREQ stays as published."),
+    "empower_live_canonical": "HHS emPOWER REST service, fetched 2026-10-27; canonical for power dependence and dialysis.",
+    "empower_suppressed_1_11": "emPOWER shows counts of 1-10 as 11: the value is the range 1-11, _low = 1, value kept as upper bound.",
+    "empower_snapshot_unverified": (
+        "Snapshot column facility_esrd_dialysis_any_dme (6,009 statewide) does not match the live service's "
+        "dialysis count (18,026); kept as published, marked suspect, never used as dialysis patients."),
+    "cms_join_ccn": "Joined to CMS Nursing Home Provider Information on CMS Certification Number (CCN).",
+    "cms_occupancy": "Occupancy = CMS Average Number of Residents per Day / CMS certified beds (an average, not the daily census).",
+    "medical_shelter_distance_pending": (
+        "Straight-line km to the nearest snapshot shelter with is_medical = true, read-only from the raw "
+        "snapshot: pending teammate shelters_clean."),
+    "zip_to_county_empower": "County from the facility ZIP via the emPOWER ZIP table's county FIPS (one county per ZIP).",
+    "census_geocoder": (
+        "Coordinates from the US Census Geocoder batch on the CMS address (US Government work); "
+        "coordinates_confidence carries the match quality."),
+    "coordinates_absent": "CMS publishes no coordinates and the geocoder found no match.",
+    "cms_dialysis_stations": "Dialysis stations summed from CMS Dialysis Facility listing, county from ZIP.",
+    "overture_places": (
+        "Overture Maps Places release 2026-10-21.0, per-row licence in source_license (CDLA-Permissive-2.0, "
+        "Apache-2.0, CC0-1.0); confidence is Overture's own. A listing, not licensure: no beds, no fleet size."),
+}
+
+
+def trim(col: str) -> str:
+    return f"NULLIF(TRIM({col}), '')"
+
+
+def recorded_or_unrecorded(col: str) -> str:
+    return f"CASE WHEN {col} IS NULL THEN 'unrecorded' ELSE 'recorded' END"
+
+
+def empower_value(col: str) -> tuple[str, str, str]:
+    return (col,
+            f"CASE WHEN {col} = 11 THEN 1 ELSE {col} END",
+            f"CASE WHEN {col} IS NULL THEN 'unrecorded' WHEN {col} = 11 THEN 'imputed' ELSE 'recorded' END")
+
+
+def point(lon: str, lat: str) -> str:
+    return f"ST_Transform(ST_Point({lon}, {lat}), {PROJ})"

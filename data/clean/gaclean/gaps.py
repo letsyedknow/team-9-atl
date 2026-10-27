@@ -1,0 +1,120 @@
+import json
+from pathlib import Path
+
+FILL_METHODS = ("maps_verify", "assumption_range", "external_source", "never_filled")
+FILL_STATES = ("open", "partially_filled", "filled")
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def measure(nums: dict) -> list[dict]:
+    p = nums["power_dependent_counties"]
+    c = nums["care_facilities"]
+    d = nums["dialysis_centers"]
+    h = nums["hazard_tracts"]
+    o = {g: v["not_permanently_closed"] for g, v in nums["overture_places"].items()}
+    return [
+        {"id": "nursing_home_occupancy", "table": "care_facilities", "gap": "Residents to move per nursing home",
+         "size": {"facilities": nums["rows"]["care_facilities"], "occupancy_unrecorded": c["occupancy_unrecorded"],
+                  "avg_residents_per_day": c["avg_residents_per_day"], "cms_certified_beds": c["cms_certified_beds"],
+                  "occupancy_pct": 100 * c["occupancy_rate"]},
+         "affects": "medical transport demand from care facilities",
+         "fill": "external_source", "fill_status": "partially_filled",
+         "detail": "CMS 'Average Number of Residents per Day', an average not the census on the day. Daily census "
+                   "(CMS Payroll Based Journal) is not loaded."},
+        {"id": "non_ambulatory_share", "table": "care_facilities", "gap": "Residents needing a stretcher or wheelchair vehicle",
+         "size": {"facilities": nums["rows"]["care_facilities"]},
+         "affects": "vehicle type mix for care-facility evacuation",
+         "fill": "assumption_range",
+         "detail": "CMS MDS 3.0 frequency report is state-level only (not loaded): apply as a labelled range per home."},
+        {"id": "nursing_home_generators_plans", "table": "care_facilities",
+         "gap": "Generator, fuel and evacuation-agreement status of each nursing home",
+         "size": {"facilities": nums["rows"]["care_facilities"]},
+         "affects": "shelter-in-place vs evacuate decision per facility",
+         "fill": "never_filled",
+         "detail": "Not in CMS provider files. Ask the facility or the state survey agency."},
+        {"id": "alf_pch_missing", "table": "care_facilities",
+         "gap": "Assisted living, personal care, home health and hospice are not in care_facilities",
+         "size": {"overture_assisted_living": o["assisted_living"], "overture_retirement_homes": o["retirement_home"],
+                  "overture_home_health": o["home_health"], "overture_hospice": o["hospice"]},
+         "affects": "medically dependent population outside nursing homes",
+         "fill": "external_source", "fill_status": "partially_filled",
+         "detail": "overture_places (status external, Overture confidence and per-row licence kept). Listings only: "
+                   "no beds, no licensure. DCH licensed lists state no licence and are not used."},
+        {"id": "nemt_ambulance_inventory", "table": "care_facilities", "gap": "NEMT, para-transit and ambulance fleet",
+         "size": {"overture_ambulance_ems": o["ambulance_ems"], "overture_medical_transport": o["medical_transport"],
+                  "vehicles": 0},
+         "affects": "transport capacity for medically dependent evacuees",
+         "fill": "assumption_range", "fill_status": "partially_filled",
+         "detail": "Overture locates operators, never fleet size or wheelchair vans. Fleet is a labelled "
+                   "low/base/high input until a county or state inventory is supplied."},
+        {"id": "medical_shelter_distance", "table": "care_facilities",
+         "gap": "Distance from each facility to a usable medical-needs shelter",
+         "size": {"median_km_pending": c["median_km_nearest_medical_shelter_pending"]},
+         "affects": "medical sheltering access per facility",
+         "fill": "external_source",
+         "detail": "Computed read-only from the raw snapshot shelters (is_medical): pending teammate shelters_clean."},
+        {"id": "dialysis_coordinates", "table": "dialysis_centers", "gap": "Dialysis centers without coordinates",
+         "size": {**{f"geocode_{k}": v for k, v in d["coordinates_confidence"].items()},
+                  "stations_without_coordinates": d["stations_without_coordinates"]},
+         "affects": "distance from dialysis patients to an operating center; center flood exposure",
+         "fill": "external_source", "fill_status": "partially_filled",
+         "detail": "Census Geocoder (US Government work), match quality in coordinates_confidence. Unmatched: Maps "
+                   "place_id lookup at runtime."},
+        {"id": "empower_suppressed", "table": "power_dependent_counties", "gap": "emPOWER counts 1-10 published as 11",
+         "size": {f"counties_{k}": v for k, v in p["counties_suppressed_1_11"].items() if v},
+         "affects": "dialysis, oxygen and home-health demand in small counties",
+         "fill": "assumption_range",
+         "detail": "Carried as the range 1-11 (<field>_live_low = 1, value = 11, status imputed)."},
+        {"id": "empower_snapshot_mismatch", "table": "power_dependent_counties",
+         "gap": "Snapshot dialysis-like column disagrees with the live service",
+         "size": {"snapshot_facility_esrd_dialysis_any_dme": p["facility_esrd_dialysis_any_dme_snapshot"],
+                  "live_dialysis": p["dialysis_live"],
+                  "snapshot_power_dependent": p["power_dependent_snapshot"],
+                  "live_power_dependent": p["power_dependent_live"]},
+         "affects": "dialysis and power-dependent demand",
+         "fill": "external_source", "fill_status": "filled",
+         "detail": "Live emPOWER is canonical and carried beside the snapshot; the snapshot column is marked suspect."},
+        {"id": "power_dependence_granularity", "table": "power_dependent_counties",
+         "gap": "Power dependence is county-level",
+         "size": {"counties": nums["rows"]["power_dependent_counties"]},
+         "affects": "where in a county power-dependent residents live",
+         "fill": "external_source",
+         "detail": "emPOWER ZIP counts exist (extdata/emPOWER/empower_ga_zip.csv), not joined. Never assign to a block."},
+        {"id": "surge_exposure", "table": "hazard_tracts", "gap": "Storm-surge inundation by category",
+         "size": {"tracts_in_nri_coastal_flood_layer": h["coastal_flood_exposed"]},
+         "affects": "which facilities and tracts flood in a given storm",
+         "fill": "external_source",
+         "detail": "NRI coastal flood is an annualised composite. NOAA NHC SLOSH MOM rasters (public domain, 1.65 GB) "
+                   "are documented in extdata/slosh, not clipped."},
+        {"id": "tracts_without_hazard_row", "table": "hazard_tracts", "gap": "2020 tracts with no NRI hazard row",
+         "size": {"tracts": h["vulnerability_tracts_without_hazard_row"], "population": 0},
+         "affects": "nothing: all have population 0 (water tracts)",
+         "fill": "never_filled", "detail": "Asserted at build: the build fails if any populated tract lacks a row."},
+        {"id": "evacuation_route_geometry", "table": None, "gap": "Official evacuation route geometry",
+         "size": {"gdot_segments_not_shipped": 110},
+         "affects": "which roads evacuees use",
+         "fill": "external_source",
+         "detail": "Licence gap: the GDOT layer states no licence and is not shipped. Analyses use Census TIGER/Line "
+                   "2023 roads by route name; drive legs come from Maps routing at runtime, nothing stored."},
+    ]
+
+
+def write_gaps(nums: dict, root: Path = ROOT) -> list[dict]:
+    gaps = measure(nums)
+    for g in gaps:
+        g.setdefault("fill_status", "open")
+        assert g["fill"] in FILL_METHODS and g["fill_status"] in FILL_STATES, g
+    (root / "out" / "gaps.json").write_text(json.dumps(gaps, indent=2, default=float) + "\n")
+    lines = ["# Gap register: care facilities, hazard tracts, power-dependent counties", "",
+             "Generated by `python -m gaclean.build` (`out/gaps.json`). Fill methods: `maps_verify` (grounded live, only",
+             "place_ids stored), `assumption_range` (a labelled low/base/high simulator input), `external_source` (a",
+             "named source that clears the licence bar), `never_filled`. Shelter and vulnerability-tract gaps belong",
+             "to the teammates' tables.", "",
+             "| Table | Gap | Size | Affects | Fill | State | How |", "|---|---|---|---|---|---|---|"]
+    for g in gaps:
+        size = "; ".join(f"{k.replace('_', ' ')} {v:,.1f}".replace(".0 ", " ").removesuffix(".0")
+                         if isinstance(v, float) else f"{k.replace('_', ' ')} {v:,}" for k, v in g["size"].items())
+        lines.append(f"| {g['table'] or 'n/a'} | {g['gap']} | {size} | {g['affects']} | `{g['fill']}` | "
+                     f"{g['fill_status']} | {g['detail']} |")
+    (root / "GAPS.md").write_text("\n".join(lines) + "\n")
+    return gaps
