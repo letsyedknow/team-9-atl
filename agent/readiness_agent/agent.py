@@ -18,6 +18,7 @@ from .evacuation_tools import (
     build_readiness_brief,
     find_power_dependent_counties,
     find_vulnerable_tracts,
+    identify_risky_shelters,
 )
 
 PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "qwiklabs-gcp-04-edc952746633")
@@ -84,6 +85,7 @@ root_agent = Agent(
         find_vulnerable_tracts,
         assess_shelter_accessibility,
         find_power_dependent_counties,
+        identify_risky_shelters,
         build_readiness_brief,
     ],
 )
