@@ -53,15 +53,15 @@ as (b) even though it later struck near Savannah. Full list: `out/scenario_storm
 
 | Scenario | Origin (counties) | Georgia route | Host exclusions | Fill starts at |
 |---|---|---|---|---|
-| (a) Atlantic hit on GA coast | 6 GA coastal counties | coastal exit network: TIGER I-16, I-75 and US 1, 23, 25, 80, 82, 84, 280, 301, 341, segments whose midpoint is south of 33.0° N (557 segments) | the 6 origin counties | origin population centroid |
+| (a) Atlantic hit on GA coast | 6 GA coastal counties | coastal exit network: TIGER I-16, I-75 and US 1, 23, 25, 80, 82, 84, 280, 301, 341, segments whose centroid is south of 33.0° N (557 segments) | the 6 origin counties | origin population centroid |
 | (a′) same, wider exclusion | same | same | all 12 counties with NRI coastal-flood exposure | same |
 | (b) NE Florida / Jacksonville | Nassau, Duval, St Johns, Flagler, plus the 6 GA coastal counties (assumption: as in Irma 2017, Georgia's coast is ordered out too) | coastal exit network | the 6 GA coastal counties | origin population centroid |
 | (c) FL west coast, Milton-type | Pinellas, Hillsborough, Pasco, Manatee, Sarasota, Hernando, Citrus | TIGER I-75, Florida line to Tennessee (49 segments) | none | I-75 at the Florida line |
-| (d) Carolinas | SC: Beaufort, Jasper, Colleton, Charleston, Dorchester, Berkeley, Georgetown, Horry | TIGER I-20, SC line to Atlanta (segment midpoints east of 84.40° W; 22 segments) | none | I-20 at the SC line |
+| (d) Carolinas | SC: Beaufort, Jasper, Colleton, Charleston, Dorchester, Berkeley, Georgetown, Horry | TIGER I-20, SC line to Atlanta (segment centroids east of 84.40° W; 22 segments) | none | I-20 at the SC line |
 
 A host shelter is any usable shelter within 15 km of the scenario's route lines. **Assumption:** the
 coastal exit network is the Interstates and US highways that leave the six coastal counties inland or
-cross the Florida line into southeast Georgia, keeping segments whose midpoint is south of 33.0° N
+cross the Florida line into southeast Georgia, keeping segments whose centroid is south of 33.0° N
 (south of Macon and Augusta). The list
 is in `scenarios.py: EXIT_NETWORK`. The hand-drawn corridors used in the README sit close to the
 TIGER geometry: TIGER I-75 vertices south of Macon (32.84° N) are within a median 1.8 km of the I-75
