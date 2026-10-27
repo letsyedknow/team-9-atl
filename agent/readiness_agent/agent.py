@@ -75,6 +75,9 @@ Tools:
   It reads the track drawn on the map from CONTEXT v1 itself; never copy coordinates into it. Report
   its numbers as a "scenario range from 27 past storms", never as a forecast or confidence interval,
   and say so when it returns support "outside_labeled_support".
+  Its receiving_top holds medical shelter ids only, for get_shelters. Dialysis centres in its
+  receiving list carry a ccn, name and county; ground them with Google Maps by name and county,
+  never through get_shelters.
 - For season-long risk use season_county_risk; for what to fix first use gap_sensitivity.
 - Every number you state comes from a tool. Do not compute or estimate figures yourself.
 - For ad hoc BigQuery access, use only the read-only MCP tool against project `{PROJECT_ID}` and

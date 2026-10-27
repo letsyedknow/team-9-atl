@@ -35,20 +35,45 @@ def _context(tool_context: Any) -> dict[str, Any]:
         text = (getattr(part, "text", None) or "").strip()
         if text.startswith(CONTEXT_PREFIX):
             try:
-                return json.loads(text[len(CONTEXT_PREFIX):])
+                value = json.loads(text[len(CONTEXT_PREFIX):])
             except json.JSONDecodeError:
                 return {}
+            return value if isinstance(value, dict) else {}
     return {}
 
 
 def _track_lonlats(scenario: dict[str, Any]) -> list[tuple[float, float]]:
-    geometry = (scenario or {}).get("track") or {}
-    if geometry.get("type") == "Feature":
-        geometry = geometry.get("geometry") or {}
-    coords = geometry.get("coordinates") or []
+    geometry = scenario.get("track")
+    if isinstance(geometry, dict) and geometry.get("type") == "Feature":
+        geometry = geometry.get("geometry")
+    if not isinstance(geometry, dict):
+        return []
+    coords = geometry.get("coordinates")
     if geometry.get("type") == "Point":
         coords = [coords]
-    return [(float(c[0]), float(c[1])) for c in coords if len(c) >= 2]
+    if not isinstance(coords, list):
+        return []
+    points = []
+    for c in coords:
+        try:
+            lon, lat = float(c[0]), float(c[1])
+        except (TypeError, ValueError, IndexError, KeyError):
+            continue
+        if -180 <= lon <= 180 and -90 <= lat <= 90:
+            points.append((lon, lat))
+    return points
+
+
+def _category(value: Any) -> int | None:
+    try:
+        category = int(value)
+    except (TypeError, ValueError):
+        return None
+    return category if 0 <= category <= 5 else None
+
+
+def _status(status: str, message: str, **extra: Any) -> dict[str, Any]:
+    return {"status": status, "message": message, **extra, "source": SOURCES["scenario"]}
 
 
 def _band(values) -> dict[str, float]:
@@ -79,37 +104,47 @@ def run_scenario(
     """
     case = case if case in CASES else "base"
     ctx = _context(tool_context)
-    scenario_ctx = ctx.get("scenario") or {}
+    scenario_ctx = ctx.get("scenario")
+    scenario_ctx = scenario_ctx if isinstance(scenario_ctx, dict) else {}
     lonlats = _track_lonlats(scenario_ctx)
     if len(lonlats) < 2 and (lat is None or lon is None):
-        return {
-            "status": "needs_track_or_position",
-            "message": "Draw a track on the map, or give the storm's lat, lon, heading and date.",
-        }
+        return _status(
+            "needs_track_or_position",
+            "Draw a track on the map, or give the storm's lat, lon, heading and date.",
+        )
+    try:
+        month = Date.fromisoformat(date).month if date else datetime.now(UTC).month
+    except (TypeError, ValueError):
+        return _status("bad_date", "Give the date as YYYY-MM-DD.", date=date)
 
     import numpy as np
 
     from .scenario import data, engine, storms
     from .scenario.receiving import receiving_sites
 
-    county_fips = county_fips or ctx.get("county_fips")
-    category = category if category is not None else scenario_ctx.get("category")
-    month = Date.fromisoformat(date).month if date else datetime.now(UTC).month
+    if not isinstance(county_fips, str) or not county_fips:
+        county_fips = ctx.get("county_fips") if isinstance(ctx.get("county_fips"), str) else None
+    category = _category(category if category is not None else scenario_ctx.get("category"))
 
     match: dict[str, Any] | None = None
     if len(lonlats) >= 2:
-        tracks = [storms.drawn_track(lonlats, int(category if category is not None else 3))]
+        tracks = [storms.drawn_track(lonlats, 3 if category is None else category)]
         source, used = "drawn_track", []
         likelihood = storms.pattern_frequency(
-            track=tracks[0], min_intensity_kt=CATEGORY_FLOOR_KT[int(category or 0)]
+            track=tracks[0], min_intensity_kt=CATEGORY_FLOOR_KT[category or 0]
         )
         origin = storms.classify_origin(lonlats[0][1], lonlats[0][0])
     else:
         analogs = storms.analog_tracks(lat, lon, heading_deg or 0.0, month, intensity_kt)
         if category is not None:
-            analogs = [storms.rescale(a, int(category)) for a in analogs]
+            analogs = [storms.rescale(a, category) for a in analogs]
         if not analogs:
-            return {"status": "no_matching_past_storms", "lat": lat, "lon": lon, "month": month}
+            return _status(
+                "no_matching_past_storms",
+                "No storm since 1950 passed within 300 km of this point with a similar heading "
+                "and time of year.",
+                lat=lat, lon=lon, month=month,
+            )
         tracks = [a.track for a in analogs]
         source = "matched_past_storms"
         likelihood = storms.pattern_frequency(
@@ -136,9 +171,23 @@ def run_scenario(
     if county_fips in index and index[county_fips] not in picked:
         picked.append(index[county_fips])
 
+    support_outside = any(result.outside_support)
+    sites = data.sites()
+    shelters_by_county: dict[str, list[dict[str, Any]]] = {}
+    for s in sites.get("medical_shelters", []):
+        shelters_by_county.setdefault(s["county_fips"], []).append(s)
+    centres_by_county: dict[str, list[dict[str, Any]]] = {}
+    for d in sites.get("dialysis_centers", []):
+        centres_by_county.setdefault(d["county_fips"], []).append(d)
+
+    def in_surge(site: dict[str, Any]) -> bool:
+        return category is not None and category in site.get("in_surge", [])
+
     rows = []
     for i in picked:
         c = counties[i]
+        shelters = shelters_by_county.get(c["county_fips"], [])
+        centres = centres_by_county.get(c["county_fips"], [])
         rows.append({
             "county_fips": c["county_fips"],
             "county_name": c["county_name"],
@@ -152,20 +201,31 @@ def run_scenario(
             "oxygen_users": {"residents": c["oxygen"], "at_risk": _people(risk["oxygen"][:, i])},
             "home_health_users": {"residents": c["home_health"],
                                   "at_risk": _people(risk["home_health"][:, i])},
-            "dialysis_patients": {"patients": c["dialysis_patients"],
-                                  "centres_down": bool(p50[i] >= DIALYSIS_DOWN_SHARE)},
+            "dialysis_patients": {
+                "patients": c["dialysis_patients"],
+                "centres": len(centres),
+                "stations": sum(d.get("stations") or 0 for d in centres),
+                "centres_down": bool(p50[i] >= DIALYSIS_DOWN_SHARE),
+            },
             "nursing_home_beds": c.get("nursing_home_beds", 0),
             "assisted_living_beds": c.get("assisted_living_beds", 0),
-            "status": "censored_count" if c.get("power_dependent_censored") else "modelled",
+            "in_surge_zone": {
+                "shelter_ids": [s["shelter_id"] for s in shelters if in_surge(s)],
+                "dialysis_ccns": [d["ccn"] for d in centres if in_surge(d)],
+            },
+            "status": [
+                "modelled",
+                *(["outside_labeled_support"] if support_outside else []),
+                *(["censored_count"] if c.get("power_dependent_censored") else []),
+            ],
         })
 
     receiving = None
     if county_fips in index:
         i = index[county_fips]
         down = {counties[j]["county_fips"] for j in np.where(p50 >= DIALYSIS_DOWN_SHARE)[0]}
-        surge_cat = int(category) if category else None
         receiving = receiving_sites(
-            counties[i], data.sites(), down, surge_cat, origin, case,
+            counties[i], sites, down, category or None, origin, case,
             None if np.isnan(result.ts_arrival_h[i]) else float(result.ts_arrival_h[i]),
             relocation_share=RELOCATION_SHARE[case],
             power_dependent_at_risk=float(np.median(risk["power_dependent"][:, i])),
@@ -173,22 +233,25 @@ def run_scenario(
 
     statewide = {
         "counties_affected": _people((outage >= AFFECTED_SHARE).sum(axis=1)),
+        "counties_affected_in_most_draws": int((result.p_affected >= 0.5).sum()),
         "power_dependent_at_risk": _people(risk["power_dependent"].sum(axis=1)),
         "oxygen_users_at_risk": _people(risk["oxygen"].sum(axis=1)),
         "dialysis_patients_at_risk": _people(risk["dialysis"].sum(axis=1)),
         "facility_beds_exposed": _people(risk["facility_beds"].sum(axis=1)),
     }
-    affected = [counties[j]["county_fips"] for j in np.where(p50 >= AFFECTED_SHARE)[0]]
+    affected = [counties[j]["county_fips"] for j in np.where(result.p_affected >= 0.5)[0]]
     affected_set = set(affected)
     affected_shelters = [
-        s["shelter_id"] for s in data.sites().get("medical_shelters", [])
-        if s["county_fips"] in affected_set
-        or (category and int(category) in s.get("in_surge", []))
+        s["shelter_id"] for s in sites.get("medical_shelters", [])
+        if s["county_fips"] in affected_set or in_surge(s)
+    ]
+    receiving_shelters = [
+        r["shelter_id"] for r in (receiving or {}).get("sites", []) if r.get("shelter_id")
     ]
     return {
         "affected_county_fips": affected,
         "affected_shelter_ids": affected_shelters,
-        "receiving_top": [r.get("shelter_id") or r.get("ccn") for r in (receiving or {}).get("sites", [])],
+        "receiving_top": receiving_shelters,
         "scenario": {
             "source": source,
             "origin": origin,
@@ -197,11 +260,12 @@ def run_scenario(
             "past_storms_used": used[:12],
             "match": match,
             "likelihood": likelihood,
-            "support": "outside_labeled_support" if any(result.outside_support)
+            "support": "outside_labeled_support" if support_outside
             else "within_labeled_support",
             "range_label": RANGE_LABEL,
             "assumptions": {
                 "affected_threshold_share": AFFECTED_SHARE,
+                "affected_county_rule": "at least 10% outage in at least half of the draws",
                 "dialysis_down_share": DIALYSIS_DOWN_SHARE,
                 "relocation_share": RELOCATION_SHARE[case],
                 "case": case,

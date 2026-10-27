@@ -23,7 +23,7 @@ Every new tool result carries `county_fips` and `shelter_id`, so highlighting wo
 |---|---|---|---|
 | F1 | Keep the latest `run_scenario` result from the chat stream (`functionResponse.name == "run_scenario"`), like `record_live_check` | `functionResponse.response` | `ChatPanel.tsx`, `store.tsx` |
 | F2 | County fill by `counties[].outage_share.p50`, with p10-p90 in the hover card and a legend reading "Modelled: scenario range from 27 past storms" | `counties[]` | `CountyLayer.tsx`, `Legend.tsx` |
-| F3 | When a modelled result is present, "affected" comes from `affected_county_fips` instead of the band intersection; the band stays as the drawn track | `affected_county_fips` | `state/scenario.tsx` |
+| F3 | When a modelled result is present, "affected" comes from `affected_county_fips` (at least 10% outage in at least half the draws) instead of the band intersection; the band stays as the drawn track | `affected_county_fips` | `state/scenario.tsx` |
 | F4 | Scenario summary card: people at risk (power-dependent, oxygen, dialysis, facility beds) as p10 / p50 / p90; the `likelihood` line ("about once every N years since 1950"); a badge when `support` is `outside_labeled_support` | `statewide`, `scenario.likelihood`, `scenario.support` | `AffectedSummary.tsx` |
 | F5 | Receiving list: when a modelled result has `receiving`, show drive minutes (`status` live or straight-line), evacuation delay low / base / high, and whether the trip beats the winds; otherwise keep today's straight-line list | `receiving.sites[]` | `ReceivingList.tsx` (`ValueKind` already has `live`) |
 | F6 | Surge zone layer for the chosen category | `agent/readiness_agent/scenario/data/surge_zones.geojson`, served as a static file or bundled | `MapView.tsx` |
