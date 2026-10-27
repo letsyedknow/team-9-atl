@@ -55,9 +55,19 @@ echo "WIF provider: ${POOL_ID}/providers/${WIF_PROVIDER}"
 echo "Deploy service account: ${DEPLOY_SA}"
 
 if gcloud run services describe "${SERVICE}" --project "${PROJECT_ID}" --region "${REGION}" >/dev/null 2>&1; then
+  gcloud beta run services update "${SERVICE}" --project "${PROJECT_ID}" --region "${REGION}" --iap --quiet >/dev/null
   gcloud run services add-iam-policy-binding "${SERVICE}" --project "${PROJECT_ID}" --region "${REGION}" \
-    --member allUsers --role roles/run.invoker --quiet >/dev/null
-  echo "Public access granted on ${SERVICE}"
+    --member "serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-iap.iam.gserviceaccount.com" \
+    --role roles/run.invoker --quiet >/dev/null
+  gcloud run services remove-iam-policy-binding "${SERVICE}" --project "${PROJECT_ID}" --region "${REGION}" \
+    --member allUsers --role roles/run.invoker --quiet >/dev/null 2>&1 || true
+  while read -r member; do
+    [[ -z "${member}" ]] && continue
+    gcloud beta iap web add-iam-policy-binding --resource-type cloud-run --service "${SERVICE}" \
+      --region "${REGION}" --project "${PROJECT_ID}" --member "${member}" \
+      --role roles/iap.httpsResourceAccessor --condition None --quiet >/dev/null
+  done < deploy/iap_members.txt
+  echo "IAP on ${SERVICE} for $(grep -c . deploy/iap_members.txt) members"
 else
-  echo "Run deploy/deploy.sh once, then rerun this script to make the service public."
+  echo "Run deploy/deploy.sh once, then rerun this script to put the service behind IAP."
 fi
