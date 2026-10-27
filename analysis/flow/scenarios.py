@@ -135,10 +135,14 @@ print("offshore near misses of the GA coast:", near_miss)
 
 con.execute(f"""
     CREATE TABLE roads AS
-    SELECT FULLNAME AS route, ST_Y(ST_Centroid(geom)) AS lat, ST_X(ST_Centroid(geom)) AS lon,
+    WITH r AS (
+        SELECT FULLNAME AS route, ST_Transform(geom, 'EPSG:4269', 'EPSG:4326', always_xy := true) AS geom
+        FROM ST_Read('{TIGER}')
+        WHERE regexp_matches(FULLNAME, '^(I- \\d+|US Hwy \\d+)( |$)')
+    )
+    SELECT route, ST_Y(ST_Centroid(geom)) AS lat, ST_X(ST_Centroid(geom)) AS lon, geom AS geom_ll,
            ST_Transform(geom, {PROJ}) AS geom
-    FROM ST_Read('{TIGER}')
-    WHERE regexp_matches(FULLNAME, '^(I- \\d+|US Hwy \\d+)( |$)')
+    FROM r
 """)
 assert one(con, "SELECT COUNT(*) FROM roads WHERE route = 'I- 75'") > 0
 
@@ -157,10 +161,14 @@ for name, sql in route_sql.items():
     print(name, "segments:", one(con, f"SELECT COUNT(*) FROM ({sql})"))
 
 check = {}
-for where, name in ((f"route = 'I- 75' AND lat < {MACON_LAT}", "I-75 south (FL line to Macon)"),
-                    ("route = 'I- 16'", "I-16 (Savannah to Macon)")):
+for route, max_lat, name in (("I- 75", MACON_LAT, "I-75 south (FL line to Macon)"),
+                             ("I- 16", 90, "I-16 (Savannah to Macon)")):
     km = con.execute(f"""
-        WITH v AS (SELECT UNNEST(ST_Dump(ST_Points(geom))).geom AS p FROM roads WHERE {where})
+        WITH v AS (
+            SELECT ST_Transform(p, {PROJ}) AS p FROM (
+                SELECT UNNEST(ST_Dump(ST_Points(geom_ll))).geom AS p FROM roads WHERE route = '{route}'
+            ) WHERE ST_Y(p) < {max_lat}
+        )
         SELECT max(ST_Distance(p, {linestring(CORRIDORS[name])})) / 1000,
                quantile_cont(ST_Distance(p, {linestring(CORRIDORS[name])}), 0.5) / 1000
         FROM v
