@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory() as tmp:
 assert len(rows) == 2796, len(rows)
 DEST.parent.mkdir(exist_ok=True)
 with DEST.open("w", newline="") as f:
-    w = csv.DictWriter(f, fieldnames=list(rows[0]))
+    w = csv.DictWriter(f, fieldnames=list(rows[0]), lineterminator="\n")
     w.writeheader()
     w.writerows(rows)
 print(f"{len(rows)} Georgia tracts -> {DEST}")

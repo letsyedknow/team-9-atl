@@ -139,7 +139,7 @@ for scen in SCENARIOS:
             "shelter_seekers_into_ga": round(r.exposed_pop * k * su),
         })
 with open(OUT / "fl_incoming_demand.csv", "w", newline="") as f:
-    w = csv.DictWriter(f, fieldnames=list(rows[0]))
+    w = csv.DictWriter(f, fieldnames=list(rows[0]), lineterminator="\n")
     w.writeheader()
     w.writerows(rows)
 

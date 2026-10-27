@@ -377,30 +377,12 @@
         "usage": "BOTH"
       },
       {
-        "capacity": 53.0,
+        "capacity": 450.0,
         "county_fips": "13043",
         "flag": "ok",
-        "generator": "no",
+        "generator": "yes",
         "in_surge": null,
-        "name": "Cedar St Baptist Church",
-        "usage": "BOTH"
-      },
-      {
-        "capacity": 200.0,
-        "county_fips": "13043",
-        "flag": "ok",
-        "generator": "no",
-        "in_surge": null,
-        "name": "Guido Evangelistic Association",
-        "usage": "BOTH"
-      },
-      {
-        "capacity": 505.0,
-        "county_fips": "13043",
-        "flag": "ok",
-        "generator": "no",
-        "in_surge": null,
-        "name": "Metter Pre K-8 School",
+        "name": "Metter High School",
         "usage": "BOTH"
       },
       {
@@ -413,12 +395,30 @@
         "usage": "BOTH"
       },
       {
-        "capacity": 450.0,
+        "capacity": 505.0,
         "county_fips": "13043",
         "flag": "ok",
-        "generator": "yes",
+        "generator": "no",
         "in_surge": null,
-        "name": "Metter High School",
+        "name": "Metter Pre K-8 School",
+        "usage": "BOTH"
+      },
+      {
+        "capacity": 200.0,
+        "county_fips": "13043",
+        "flag": "ok",
+        "generator": "no",
+        "in_surge": null,
+        "name": "Guido Evangelistic Association",
+        "usage": "BOTH"
+      },
+      {
+        "capacity": 53.0,
+        "county_fips": "13043",
+        "flag": "ok",
+        "generator": "no",
+        "in_surge": null,
+        "name": "Cedar St Baptist Church",
         "usage": "BOTH"
       },
       {
