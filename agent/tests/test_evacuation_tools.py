@@ -1,5 +1,7 @@
 """Tool output shaping, with BigQuery replaced by fakes (tasks T068, T078). No credentials needed."""
 
+import json
+
 import pytest
 
 from readiness_agent import evacuation_tools as tools
@@ -81,6 +83,108 @@ def test_get_shelters_empty_makes_no_query(fake_bq):
     calls, _ = fake_bq
     assert tools.get_shelters([])["shelters"] == []
     assert calls == []
+
+
+def test_check_shelter_google_maps_uses_coordinates_and_returns_live_listing(monkeypatch):
+    monkeypatch.setenv("GOOGLE_MAPS_API_KEY", "test-key")
+    monkeypatch.setattr(
+        tools,
+        "get_shelters",
+        lambda ids: {
+            "shelters": [
+                {
+                    "shelter_id": ids[0],
+                    "name": "Jackson County High School",
+                    "address": "1660 Winder Highway, Jefferson, 30549",
+                    "county_name": "Jackson",
+                    "lat": 34.2,
+                    "lon": -83.4,
+                }
+            ]
+        },
+    )
+    requests = []
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return None
+
+        def read(self):
+            return json.dumps({
+                "places": [{
+                    "id": "place-1",
+                    "displayName": {"text": "Jackson County High School"},
+                    "formattedAddress": "1660 Winder Hwy, Jefferson, GA",
+                    "location": {"latitude": 34.2001, "longitude": -83.4001},
+                    "businessStatus": "OPERATIONAL",
+                    "currentOpeningHours": {"openNow": False},
+                    "googleMapsUri": "https://maps.google.com/?cid=1",
+                }]
+            }).encode()
+
+    def fake_urlopen(request, timeout):
+        requests.append((request, timeout))
+        return Response()
+
+    monkeypatch.setattr(tools.urllib.request, "urlopen", fake_urlopen)
+    result = tools.check_shelter_google_maps("363507")
+
+    request, timeout = requests[0]
+    request_body = json.loads(request.data)
+    assert request.full_url == tools.GOOGLE_PLACES_TEXT_SEARCH_URL
+    assert request.get_header("X-goog-api-key") == "test-key"
+    assert request_body["locationBias"]["circle"]["center"] == {
+        "latitude": 34.2,
+        "longitude": -83.4,
+    }
+    assert timeout == 15
+    assert result["shelter_id"] == "363507"
+    assert result["candidates"][0]["distance_m"] == 14
+    assert result["candidates"][0]["business_status"] == "OPERATIONAL"
+    assert result["candidates"][0]["opening_hours_status"] == "closed_now"
+    assert "not emergency shelter operations" in result["limitation"]
+
+
+def test_check_shelter_google_maps_requires_api_key(monkeypatch):
+    monkeypatch.delenv("GOOGLE_MAPS_API_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="GOOGLE_MAPS_API_KEY"):
+        tools.check_shelter_google_maps("363507")
+
+
+def test_check_shelter_google_maps_returns_no_match_without_claiming_closed(monkeypatch):
+    monkeypatch.setenv("GOOGLE_MAPS_API_KEY", "test-key")
+    monkeypatch.setattr(
+        tools,
+        "get_shelters",
+        lambda _: {
+            "shelters": [{
+                "shelter_id": "363507",
+                "name": "Jackson County High School",
+                "address": "1660 Winder Highway",
+                "county_name": "Jackson",
+                "lat": 34.2,
+                "lon": -83.4,
+            }]
+        },
+    )
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return None
+
+        def read(self):
+            return b'{"places": []}'
+
+    monkeypatch.setattr(tools.urllib.request, "urlopen", lambda *_args, **_kwargs: Response())
+    result = tools.check_shelter_google_maps("363507")
+    assert result["candidates"] == []
+    assert "ambiguous or missing match is unknown" in result["limitation"]
 
 
 def test_vulnerable_tracts_map_sentinel_to_none(fake_bq):

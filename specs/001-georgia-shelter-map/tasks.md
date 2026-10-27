@@ -600,7 +600,73 @@ What remains is making the agent's output match what the frontend reads ([contra
 
 ---
 
+# Collapsible details panel (added 2026-10-27)
+
+**Context**: The middle column (`SidePanel` in `frontend/src/App.tsx`) currently shows at all times. It holds:
+- `CountySummary` or `ShelterDetails`
+- `AffectedSummary` and `ReceivingList` when a hurricane is drawn
+- `CouldNotTell`
+
+The user wants a cleaner screen. **Decision**: keep the panel and its content, but collapse it to a thin rail that is **hidden by default** and opens with one click. Content is unchanged, so FR-003, FR-003a, FR-004, FR-005, FR-007, FR-018 (a–d), FR-019 and Constitution VII stay met when the panel is open. Hovering, selecting a county, selecting a shelter or drawing a track does **not** open it automatically.
+
+## Phase 14: User Story 1 - Details panel collapsed by default (Priority: P1)
+
+**Goal**: The map and chat take the full width. The details panel is a narrow rail until the user opens it.
+
+**Independent Test**: Open the app (mock or real agent) and check:
+- only the map and chat are visible, plus a narrow "Details" rail
+- hovering a county or drawing a track does not open the panel
+- clicking the rail opens it and shows the county summary or hurricane lists, and "Hide" collapses it again
+
+- [X] T082 [US1] Add panel state in `frontend/src/state/store.tsx`:
+  - add `detailsOpen: boolean` to `State`, defaulting to `false` in `initialState`
+  - add the action `{ type: "setDetailsOpen"; open: boolean }` and its reducer case
+  - no other action may change `detailsOpen`; hover, select and setTrack must not open it
+- [X] T083 [US1] Move the `SidePanel` function out of `frontend/src/App.tsx` into a new `frontend/src/components/summary/DetailsPanel.tsx`.
+  - **Closed** (`state.detailsOpen === false`): render a `<button className="details-rail">` with `aria-expanded="false"`, `aria-controls="details-panel"` and accessible name "Show details". Its visible label is the vertical text "Details ▸". When `state.selectedShelterId`, `state.selectedFips` or an active scenario (`useScenario()`) exists, add a small dot inside it (`<span className="details-rail__dot" aria-hidden="true" />`) and append " (new details available)" to the accessible name.
+  - **Open**: render `<aside id="details-panel" className="side" aria-label="Details">`. It starts with a header row containing a "◂ Hide" button (`aria-expanded="true"`, `aria-controls="details-panel"`) that dispatches `setDetailsOpen(false)`, followed by the existing content unchanged: `ShelterDetails` or `CountySummary`, then `AffectedSummary` and `ReceivingList` when a scenario exists, then `CouldNotTell`.
+  - In `App.tsx`, replace `<SidePanel />` with `<DetailsPanel />` and remove the now-unused imports.
+- [X] T084 [P] [US1] Update the layout in `frontend/src/styles/app.css`:
+  - change `.layout` `grid-template-columns` to `minmax(420px, 1fr) auto 400px`, so the middle column is only as wide as the rail or panel
+  - give `.side` `width: 360px`
+  - add `.details-rail`: `width: 32px`, full height, `writing-mode: vertical-rl`, border-left `var(--border)`, background `var(--panel)`, color `var(--muted)`, no other border, cursor pointer, hover background `var(--county)`, and a visible `:focus-visible` outline
+  - add `.details-rail__dot`: an 8px circle in `var(--live)`
+  - add a `.side__header` flex row with space-between
+- [X] T085 [P] [US1] Write `frontend/tests/component/DetailsPanel.test.tsx`. Render `DetailsPanel` inside `StoreProvider` and `ScenarioProvider` with `initial={{ mapData: { status: "ready", data: fixture } }}` (fixture `tests/mocks/mapData.fixture.json`). Assert:
+  - (a) by default the button "Show details" has `aria-expanded="false"`, and `screen.queryByTestId("county-summary")` and `queryByTestId("could-not-tell")` are null
+  - (b) clicking it shows `could-not-tell` and the hint text, and the "◂ Hide" button has `aria-expanded="true"`
+  - (c) with `initial.selectedFips = "13157"` the rail shows the dot and its accessible name contains "new details available", but the panel stays closed
+  - (d) clicking "◂ Hide" collapses it again
+- [X] T086 [US1] Update the e2e demo path in `frontend/tests/e2e/smoke.spec.ts`:
+  - right after the shelters appear, assert `getByRole("button", { name: /Show details/ })` is visible and `getByTestId("county-summary")` is not
+  - then click it before the county-summary, affected-summary and receiving-list assertions
+  - after drawing the track, also assert the panel is still open (it was opened manually) and was not closed by drawing
+
+**Checkpoint**: The default screen is map plus chat. All existing tests pass with the panel opened explicitly.
+
+---
+
+## Phase 15: Polish (collapsible panel)
+
+- [X] T087 [P] Amend `specs/001-georgia-shelter-map/spec.md` for the decision:
+  - add to `## Clarifications` → `### Session 2026-10-27`: "- Q: Should the summary pane always be visible? → A: No. It collapses to a rail, hidden by default, and opens with one click; hovering, selecting or drawing does not open it."
+  - FR-003: change "On hover or selection, the system MUST show a county summary" to "On hover or selection, the system MUST update a county summary, shown in the details panel (collapsed by default, one click to open)"
+  - FR-018: append "Shown in the details panel."
+  - User Story 1 acceptance scenario 1: "…and its summary appears within a moment" becomes "…and, with the details panel open, its summary appears within a moment"
+  - SC-004: append "(with the details panel open)"
+  - in `specs/001-georgia-shelter-map/quickstart.md` §5, add "Open the Details panel" as the first step after the app loads
+- [X] T088 Run the full verification:
+  - `cd frontend && npx tsc -b && npx eslint . && npx vitest run && npm run build && npx playwright test`
+  - capture two 1440×900 screenshots (closed and open, after drawing a Glynn Category 3 track) to the session scratchpad and check the map widens when the panel is closed and nothing overlaps when it opens
+
+---
+
 ## Dependencies & Execution Order
+
+### Collapsible panel (phases 14–15)
+
+- T082 runs before T083. T084 and T085 can run alongside T083 (different files). T086 runs after T083.
+- T087 is documentation and can run anytime. T088 runs last.
 
 ### Integration phases (8–13)
 

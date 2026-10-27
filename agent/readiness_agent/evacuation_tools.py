@@ -1,4 +1,8 @@
+import json
+import math
 import os
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any
@@ -22,6 +26,11 @@ SOURCES = {
 
 MAX_SHELTER_IDS = 25
 LIVE_CHECK_STATUSES = ("exists", "renamed", "closed", "unknown")
+GOOGLE_PLACES_TEXT_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
+GOOGLE_PLACES_FIELD_MASK = (
+    "places.id,places.displayName,places.formattedAddress,places.location,"
+    "places.businessStatus,places.currentOpeningHours.openNow,places.googleMapsUri"
+)
 
 
 def _dataset_name() -> str:
@@ -236,6 +245,138 @@ def get_shelters(shelter_ids: list[str]) -> dict[str, Any]:
     return {
         "shelters": [by_id[str(i)] for i in shelter_ids if str(i) in by_id],
         "source": SOURCES["shelters"],
+    }
+
+
+def _distance_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> int:
+    """Return straight-line distance between two coordinates."""
+    earth_radius_m = 6_371_000
+    lat1_rad, lat2_rad = math.radians(lat1), math.radians(lat2)
+    delta_lat = math.radians(lat2 - lat1)
+    delta_lon = math.radians(lon2 - lon1)
+    a = (
+        math.sin(delta_lat / 2) ** 2
+        + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2) ** 2
+    )
+    return round(earth_radius_m * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)))
+
+
+def check_shelter_google_maps(shelter_id: str) -> dict[str, Any]:
+    """Find nearby Google Maps place listings for one shelter and return their live listing
+    status and current opening-hours status. Opening hours describe the place listing only; they
+    do not establish that the shelter is accepting evacuees or has capacity.
+
+    Google Maps data is fetched on every call and is not cached or persisted. The caller should
+    verify the candidate name, address and distance before treating it as the shelter.
+    """
+    api_key = os.getenv("GOOGLE_MAPS_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "GOOGLE_MAPS_API_KEY is required for live Google Maps checks. "
+            "Enable Places API (New) and set a restricted API key."
+        )
+
+    if not shelter_id:
+        raise ValueError("shelter_id is required.")
+
+    shelter_results = get_shelters([str(shelter_id)])["shelters"]
+    if not shelter_results:
+        raise ValueError(f"No shelter with id {shelter_id!r} was found in the configured dataset.")
+    shelter = shelter_results[0]
+
+    lat = float(shelter["lat"])
+    lon = float(shelter["lon"])
+    query = ", ".join(
+        part
+        for part in (
+            shelter["name"],
+            shelter["address"],
+            shelter["county_name"],
+            "Georgia",
+        )
+        if part
+    )
+    body = {
+        "textQuery": query,
+        "maxResultCount": 5,
+        "locationBias": {
+            "circle": {
+                "center": {"latitude": lat, "longitude": lon},
+                "radius": 250.0,
+            }
+        },
+    }
+    request = urllib.request.Request(
+        GOOGLE_PLACES_TEXT_SEARCH_URL,
+        data=json.dumps(body).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": api_key,
+            "X-Goog-FieldMask": GOOGLE_PLACES_FIELD_MASK,
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            places_response = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = ""
+        try:
+            error_body = json.loads(exc.read().decode("utf-8"))
+            detail = error_body.get("error", {}).get("message", "")
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
+        message = f"Google Maps Places API returned HTTP {exc.code}"
+        if detail:
+            message += f": {detail}"
+        raise RuntimeError(message) from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Could not reach Google Maps Places API: {exc.reason}") from exc
+
+    candidates = []
+    for place in places_response.get("places", []):
+        location = place.get("location") or {}
+        place_lat, place_lon = location.get("latitude"), location.get("longitude")
+        hours = place.get("currentOpeningHours") or {}
+        open_now = hours.get("openNow")
+        candidates.append(
+            {
+                "place_id": place.get("id"),
+                "name": (place.get("displayName") or {}).get("text"),
+                "address": place.get("formattedAddress"),
+                "distance_m": (
+                    _distance_meters(lat, lon, place_lat, place_lon)
+                    if place_lat is not None and place_lon is not None
+                    else None
+                ),
+                "business_status": place.get("businessStatus", "UNKNOWN"),
+                "open_now": open_now,
+                "opening_hours_status": (
+                    "open_now" if open_now is True
+                    else "closed_now" if open_now is False
+                    else "not_available"
+                ),
+                "google_maps_uri": place.get("googleMapsUri"),
+            }
+        )
+
+    candidates.sort(key=lambda candidate: (
+        candidate["distance_m"] is None,
+        candidate["distance_m"] if candidate["distance_m"] is not None else float("inf"),
+    ))
+    return {
+        "shelter_id": shelter["shelter_id"],
+        "shelter_name": shelter["name"],
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "candidates": candidates,
+        "registry_source": SOURCES["shelters"],
+        "source": "Google Maps · Places API (live listing; checked just now)",
+        "limitation": (
+            "Google Maps business status and opening hours describe the place listing, not "
+            "emergency shelter operations, available beds, or storm-time availability. "
+            "Verify the candidate name, address, and distance; an ambiguous or missing match is unknown."
+        ),
     }
 
 

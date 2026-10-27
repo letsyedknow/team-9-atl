@@ -17,6 +17,8 @@ export interface State {
   highlight: { shelterIds: Set<string>; countyFips: Set<string> };
   scenario: ScenarioInput | null;
   drawing: boolean;
+  /** The details panel is collapsed by default; only the user's toggle changes it. */
+  detailsOpen: boolean;
   /** Session memory only: status and place ids per shelter, never titles/URIs/text (FR-022). */
   liveChecks: Map<string, { status: LiveCheckStatus; placeIds: string[]; checked_at: string }>;
   /** Google Maps wheelchair lookups, shown with attribution and kept only while the page is open. */
@@ -36,6 +38,7 @@ export const initialState: State = {
   highlight: { shelterIds: new Set(), countyFips: new Set() },
   scenario: null,
   drawing: false,
+  detailsOpen: false,
   liveChecks: new Map(),
   wheelchairChecks: new Map(),
   chat: [],
@@ -54,6 +57,7 @@ export type Action =
   | { type: "setCutoff"; cutoff_km: number }
   | { type: "resetScenario" }
   | { type: "setDrawing"; drawing: boolean }
+  | { type: "setDetailsOpen"; open: boolean }
   | { type: "chatStart"; exchange: ChatExchange }
   | { type: "chatUpdate"; id: string; patch: Partial<ChatExchange> }
   | { type: "liveCheck"; shelterId: string; status: LiveCheckStatus; placeIds: string[] }
@@ -101,6 +105,8 @@ export function reducer(state: State, action: Action): State {
       return { ...state, scenario: null, drawing: false };
     case "setDrawing":
       return { ...state, drawing: action.drawing };
+    case "setDetailsOpen":
+      return { ...state, detailsOpen: action.open };
     case "chatStart":
       return {
         ...state,

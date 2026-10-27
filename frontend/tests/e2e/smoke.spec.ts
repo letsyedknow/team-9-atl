@@ -8,6 +8,12 @@ test("demo path: map → hover → hurricane → receiving list → grounded ans
   await expect(page.locator("path.county")).toHaveCount(159);
   await expect(page.locator("circle.shelter").first()).toBeVisible({ timeout: 20_000 });
 
+  // The details panel is collapsed by default; open it explicitly (T086).
+  const showDetails = page.getByRole("button", { name: /Show details/ });
+  await expect(showDetails).toBeVisible();
+  await expect(page.getByTestId("county-summary")).toHaveCount(0);
+  await showDetails.click();
+
   // 2. Focus a county (keyboard path; same handler as hover) → summary with all three counts.
   await page.locator('path.county[data-fips="13157"]').focus();
   const summary = page.getByTestId("county-summary");
@@ -29,6 +35,8 @@ test("demo path: map → hover → hurricane → receiving list → grounded ans
   await page.mouse.up();
 
   // 4. Affected summary and receiving list, labeled straight-line with the 80 km cutoff.
+  // Drawing did not close the panel the user opened.
+  await expect(page.getByRole("button", { name: "◂ Hide" })).toBeVisible();
   await expect(page.getByTestId("affected-summary")).toContainText("Category 3");
   await expect(page.getByTestId("affected-summary")).toContainText("Illustrative scenario — not a forecast");
   await expect(page.getByText("Within reach:")).toContainText("80 km");

@@ -86,55 +86,57 @@ export function ReceivingListView({
             {excluded && <span className="note"> · {excluded}</span>}
           </p>
           <div className="table-scroll">
-            <table className="receiving">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Shelter</th>
-                  <th>Capacity</th>
-                  <th title="Distance (straight-line)">km*</th>
-                  <th>Wheelchair</th>
-                  <th>Generator</th>
-                  <th>Surge</th>
+          <table className="receiving">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Shelter</th>
+                <th>Capacity</th>
+                <th title="Distance (straight-line)">km*</th>
+                <th>Records</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(({ r, s }) => {
+                const check = wheelchairChecks.get(s.shelter_id);
+                return (
+                <Fragment key={r.shelter_id}>
+                <tr onClick={() => onSelect(s.shelter_id)} data-testid="receiving-row" className="receiving__main">
+                  <td>{r.rank}</td>
+                  <td>
+                    {s.name}
+                    {s.quality_flags.length > 0 && <span className="shelter-warn"> !</span>}
+                    <div className="muted">{s.county_name}</div>
+                  </td>
+                  <td>{s.evacuation_capacity === null ? "Not recorded" : formatNumber(s.evacuation_capacity)}</td>
+                  <td>{Math.round(r.distance_km.value ?? 0)} km</td>
+                  <td className="receiving__flags">
+                    <div>
+                      <span className="muted">Wheelchair</span>{" "}
+                      <span className={flagClass(s.wheelchair_accessible)}>{flagLabel(s.wheelchair_accessible)}</span>
+                      {check && s.wheelchair_accessible === "UNRECORDED" && <MapsWheelchair check={check} />}
+                      {!check && checking && s.wheelchair_accessible === "UNRECORDED" && (
+                        <div className="maps-check muted">Checking Google Maps…</div>
+                      )}
+                    </div>
+                    <div>
+                      <span className="muted">Generator</span>{" "}
+                      <span className={flagClass(s.generator_onsite)}>{flagLabel(s.generator_onsite)}</span>
+                    </div>
+                    <div>
+                      <span className="muted">Surge zone</span> <SurgeFlag s={s} />
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map(({ r, s }) => {
-                  const check = wheelchairChecks.get(s.shelter_id);
-                  return (
-                    <Fragment key={r.shelter_id}>
-                      <tr onClick={() => onSelect(s.shelter_id)} data-testid="receiving-row" className="receiving__main">
-                        <td>{r.rank}</td>
-                        <td>
-                          {s.name}
-                          {s.quality_flags.length > 0 && <span className="shelter-warn"> !</span>}
-                          <div className="muted">{s.county_name}</div>
-                        </td>
-                        <td>{s.evacuation_capacity === null ? "Not recorded" : formatNumber(s.evacuation_capacity)}</td>
-                        <td>{Math.round(r.distance_km.value ?? 0)} km</td>
-                        <td>
-                          <span className={flagClass(s.wheelchair_accessible)}>{flagLabel(s.wheelchair_accessible)}</span>
-                          {check && s.wheelchair_accessible === "UNRECORDED" && <MapsWheelchair check={check} />}
-                          {!check && checking && s.wheelchair_accessible === "UNRECORDED" && (
-                            <div className="maps-check muted">Checking Google Maps…</div>
-                          )}
-                        </td>
-                        <td>
-                          <span className={flagClass(s.generator_onsite)}>{flagLabel(s.generator_onsite)}</span>
-                        </td>
-                        <td>
-                          <SurgeFlag s={s} />
-                        </td>
-                      </tr>
-                      <tr onClick={() => onSelect(s.shelter_id)} className="receiving__reason">
-                        <td />
-                        <td colSpan={6}>{r.reason}</td>
-                      </tr>
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+                <tr onClick={() => onSelect(s.shelter_id)} className="receiving__reason">
+                  <td />
+                  <td colSpan={4}>{r.reason}</td>
+                </tr>
+                </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
           </div>
           <p className="small muted">* Straight-line distance from the nearest affected county's center, not drive time.</p>
           {surgeFromNoaa > 0 && (
@@ -166,7 +168,6 @@ export default function ReceivingList() {
   }, [autoKey]);
 
   if (!scenario) return null;
-
   return (
     <ReceivingListView
       scenario={scenario}

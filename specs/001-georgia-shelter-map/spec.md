@@ -46,6 +46,8 @@ because the simulation is illustrative.
   map shading.
 - Q: Who can open the deployed app? → A: It is deployed, but open only to signed-in Google
   accounts on an allow-list (team plus invited judges).
+- Q: Should the summary pane always be visible? → A: No. It collapses to a rail, hidden by default,
+  and opens with one click; hovering, selecting or drawing does not open it.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -67,7 +69,7 @@ counties.
 **Acceptance Scenarios**:
 
 1. **Given** the map is loaded, **When** the user hovers over any county, **Then** that county alone
-   is visibly highlighted and its summary appears within a moment; moving off clears the highlight.
+   is visibly highlighted and, with the details panel open, its summary appears within a moment; moving off clears the highlight.
 2. **Given** a county whose shelters mostly have no wheelchair record, **When** its summary shows,
    **Then** the "Not recorded" count is displayed alongside Yes and No and is never added to No.
 3. **Given** a county containing a shelter with an implausible capacity (e.g. Commerce, Jackson
@@ -217,7 +219,8 @@ get a ranked list with reasons and a separate counted "could not tell you" secti
 - **FR-001**: The system MUST display a map of Georgia showing the boundary of all 159 counties.
 - **FR-002**: The system MUST highlight the county under the pointer and remove the highlight when
   the pointer leaves it.
-- **FR-003**: On hover or selection, the system MUST show a county summary: name, shelter count,
+- **FR-003**: On hover or selection, the system MUST update a county summary, shown in the details
+  panel (collapsed by default, one click to open): name, shelter count,
   total recorded evacuation capacity, and Yes / No / Not recorded counts for wheelchair access,
   generator on site, medical-needs designation and surge-zone location. All three counts are always
   shown for every flag, never only the Yes count.
@@ -274,7 +277,7 @@ get a ranked list with reasons and a separate counted "could not tell you" secti
   4 or 5. The impact area MUST grow with category, using fixed, documented values per category.
 - **FR-018**: The system MUST highlight the counties and shelters inside the simulated impact area
   and summarize them: count, recorded capacity (per FR-007), and Yes / No / Not recorded counts for
-  wheelchair access, generator and surge-zone location.
+  wheelchair access, generator and surge-zone location. Shown in the details panel.
 - **FR-018a**: For an active scenario, the system MUST also list **receiving shelters**: Georgia
   shelters outside the impact band whose straight-line distance from the center of the nearest
   affected county is within the "within reach" cutoff, sorted by recorded evacuation capacity,
@@ -343,7 +346,7 @@ get a ranked list with reasons and a separate counted "could not tell you" secti
 - **SC-003**: In a scripted test of 10 accessibility questions, the system never presents an
   unrecorded value as "no" (0 of 10).
 - **SC-004**: Hover highlighting follows the pointer with no visible lag, and the summary appears
-  within half a second of entering a county.
+  within half a second of entering a county (with the details panel open).
 - **SC-004a**: Shelter markers and county summaries are available within 20 seconds of opening the
   application (initial load from the agent).
 - **SC-005**: After drawing or changing the simulated hurricane, the affected summary and receiving
