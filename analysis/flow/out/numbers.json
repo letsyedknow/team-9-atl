@@ -1,0 +1,495 @@
+{
+  "capacity": {
+    "clean_capacity": 571869.0,
+    "clean_capacity_shelters": 1395,
+    "clean_seats_per_1000": 54.37785424328577,
+    "counties_depending_on_suspect_rows": [
+      {
+        "clean_per_1000": 67.3,
+        "county": "Jackson",
+        "reported_per_1000": 7095.4,
+        "suspect_share": 0.991
+      },
+      {
+        "clean_per_1000": 70.5,
+        "county": "Echols",
+        "reported_per_1000": 1084.7,
+        "suspect_share": 0.935
+      },
+      {
+        "clean_per_1000": 228.8,
+        "county": "Stewart",
+        "reported_per_1000": 550.4,
+        "suspect_share": 0.584
+      }
+    ],
+    "counties_without_clean_capacity": 12,
+    "duplicate_capacity_removed": 4779.0,
+    "duplicate_rows": 4,
+    "evac_both_buildings": 1548,
+    "evac_both_buildings_without_usable_capacity": 153,
+    "flags": {
+      "capacity 0 or null": {
+        "reported_capacity": 0.0,
+        "shelters": 77
+      },
+      "capacity 1-2 placeholder": {
+        "reported_capacity": 104.0,
+        "shelters": 72
+      },
+      "no usage recorded": {
+        "reported_capacity": null,
+        "shelters": 94
+      },
+      "ok": {
+        "reported_capacity": 576648.0,
+        "shelters": 1397
+      },
+      "post-landfall only": {
+        "reported_capacity": 59984.0,
+        "shelters": 148
+      },
+      "suspect: exceeds county share": {
+        "reported_capacity": 501320.0,
+        "shelters": 4
+      }
+    },
+    "ga_pop": 10516579.0,
+    "gwcc_capacity": 68896.0,
+    "gwcc_share_of_clean": 0.12047514378292931,
+    "median_county_clean_seats_per_1000": 74.5,
+    "pop_in_counties_without_clean_capacity": 139656.0,
+    "reported_capacity_all_rows": 1138056.0,
+    "reported_capacity_evac_both": 1078072.0,
+    "shelter_rows": 1792,
+    "suspect_capacity": 501320.0,
+    "suspect_share_of_reported": 0.440505563873834,
+    "wheelchair_evac_buildings": {
+      "no": {
+        "buildings": 61,
+        "clean_capacity": 16594.0
+      },
+      "unrecorded": {
+        "buildings": 1140,
+        "clean_capacity": 398291.0
+      },
+      "yes": {
+        "buildings": 347,
+        "clean_capacity": 156984.0
+      }
+    }
+  },
+  "corridor": {
+    "any_corridor_clean_capacity": 264706.0,
+    "any_corridor_clean_capacity_wheelchair_yes": 64863.0,
+    "any_corridor_reported_capacity": 764254.0,
+    "any_corridor_resident_pop": 5868029.0,
+    "assumptions": {
+      "evacuation_rate": {
+        "base": 0.5,
+        "high": 0.7,
+        "low": 0.3
+      },
+      "fl_to_ga_share": {
+        "central FL (27.5-29.5)": {
+          "base": 0.15,
+          "high": 0.3,
+          "low": 0.05
+        },
+        "north FL (lat >= 29.5)": {
+          "base": 0.3,
+          "high": 0.5,
+          "low": 0.15
+        },
+        "south FL (lat < 27.5)": {
+          "base": 0.05,
+          "high": 0.15,
+          "low": 0.02
+        }
+      },
+      "shelter_use_rate": {
+        "base": 0.05,
+        "high": 0.1,
+        "low": 0.02
+      }
+    },
+    "buffer_km": 15.0,
+    "fl_pool": [
+      {
+        "exposed_carless_households": 25684.906865779092,
+        "exposed_pop": 1089696.008902613,
+        "exposed_pop_65_plus": 255576.7113649778,
+        "exposed_power_dependent": 11142.226691510177,
+        "region": "central FL (27.5-29.5)"
+      },
+      {
+        "exposed_carless_households": 6180.018089472304,
+        "exposed_pop": 341769.00993547915,
+        "exposed_pop_65_plus": 68034.04990420525,
+        "exposed_power_dependent": 3548.504120754412,
+        "region": "north FL (lat >= 29.5)"
+      },
+      {
+        "exposed_carless_households": 120600.80311667275,
+        "exposed_pop": 4447025.211985838,
+        "exposed_pop_65_plus": 957010.9701594664,
+        "exposed_power_dependent": 34080.644726510014,
+        "region": "south FL (lat < 27.5)"
+      }
+    ],
+    "fl_pool_total_65_plus": 1280621.7314286493,
+    "fl_pool_total_carless_households": 152465.72807192415,
+    "fl_pool_total_exposed_pop": 5878490.23082393,
+    "fl_pool_total_power_dependent": 48771.375538774606,
+    "fl_tracts_without_hazard_row": 46,
+    "ga_coastal_exposed_65_plus": 32210.99709229168,
+    "ga_coastal_exposed_carless_households": 3776.6347021088054,
+    "ga_coastal_exposed_pop": 176419.8776469411,
+    "i95_clean_capacity": 11123.0,
+    "i95_clean_capacity_in_surge": 4806.0,
+    "i95_evac_buildings": 31,
+    "i95_evac_buildings_in_surge": 13,
+    "i95_evac_buildings_surge_unrecorded": 17,
+    "per_corridor": [
+      {
+        "carless_households": 19033.0,
+        "clean_capacity": 45986.0,
+        "clean_capacity_in_surge_area": 4009.0,
+        "clean_capacity_wheelchair_yes": 11297.0,
+        "clean_per_1000_residents": 77.3,
+        "corridor": "I-16 (Savannah to Macon)",
+        "evac_buildings": 108,
+        "medical_shelters": 8,
+        "pop_65_plus": 86067.0,
+        "reported_capacity": 45993.0,
+        "resident_pop": 595215.0,
+        "resident_pop_coastal_flood_exposed": 73265.0,
+        "tracts": 179
+      },
+      {
+        "carless_households": 89641.0,
+        "clean_capacity": 167648.0,
+        "clean_capacity_in_surge_area": 89.0,
+        "clean_capacity_wheelchair_yes": 32112.0,
+        "clean_per_1000_residents": 56.5,
+        "corridor": "I-75 north (Macon to TN line)",
+        "evac_buildings": 250,
+        "medical_shelters": 1,
+        "pop_65_plus": 376188.0,
+        "reported_capacity": 167679.0,
+        "resident_pop": 2965461.0,
+        "resident_pop_coastal_flood_exposed": 0.0,
+        "tracts": 804
+      },
+      {
+        "carless_households": 18618.0,
+        "clean_capacity": 53815.0,
+        "clean_capacity_in_surge_area": NaN,
+        "clean_capacity_wheelchair_yes": 3697.0,
+        "clean_per_1000_residents": 95.4,
+        "corridor": "I-75 south (FL line to Macon)",
+        "evac_buildings": 122,
+        "medical_shelters": 0,
+        "pop_65_plus": 81205.0,
+        "reported_capacity": 53828.0,
+        "resident_pop": 564102.0,
+        "resident_pop_coastal_flood_exposed": 0.0,
+        "tracts": 156
+      },
+      {
+        "carless_households": 86423.0,
+        "clean_capacity": 135960.0,
+        "clean_capacity_in_surge_area": 361.0,
+        "clean_capacity_wheelchair_yes": 30565.0,
+        "clean_per_1000_residents": 44.7,
+        "corridor": "I-85 (AL line to SC line)",
+        "evac_buildings": 207,
+        "medical_shelters": 0,
+        "pop_65_plus": 357864.0,
+        "reported_capacity": 635472.0,
+        "resident_pop": 3041850.0,
+        "resident_pop_coastal_flood_exposed": 0.0,
+        "tracts": 820
+      },
+      {
+        "carless_households": 11663.0,
+        "clean_capacity": 11123.0,
+        "clean_capacity_in_surge_area": 4806.0,
+        "clean_capacity_wheelchair_yes": 4156.0,
+        "clean_per_1000_residents": 26.1,
+        "corridor": "I-95 (FL line to SC line)",
+        "evac_buildings": 31,
+        "medical_shelters": 0,
+        "pop_65_plus": 62033.0,
+        "reported_capacity": 11128.0,
+        "resident_pop": 425948.0,
+        "resident_pop_coastal_flood_exposed": 97995.0,
+        "tracts": 124
+      }
+    ],
+    "scenarios": {
+      "base": {
+        "fl_people_into_ga": 244168,
+        "fl_pop_65_plus_into_ga": 53298,
+        "fl_power_dependent_into_ga": 2220,
+        "fl_shelter_seekers": 12208,
+        "ga_coastal_shelter_seekers": 4410,
+        "share_of_any_corridor_clean_capacity": 0.0627809605417842,
+        "share_of_i75_south_clean_capacity": 0.30880789633324407,
+        "share_of_state_clean_capacity": 0.029059971673886027,
+        "total_shelter_seekers": 16618
+      },
+      "high": {
+        "fl_people_into_ga": 815393,
+        "fl_pop_65_plus_into_ga": 177969,
+        "fl_power_dependent_into_ga": 7160,
+        "fl_shelter_seekers": 81540,
+        "ga_coastal_shelter_seekers": 12349,
+        "share_of_any_corridor_clean_capacity": 0.35469309889192496,
+        "share_of_i75_south_clean_capacity": 1.7446695426049592,
+        "share_of_state_clean_capacity": 0.1641798933589439,
+        "total_shelter_seekers": 93889
+      },
+      "low": {
+        "fl_people_into_ga": 58407,
+        "fl_pop_65_plus_into_ga": 12638,
+        "fl_power_dependent_into_ga": 531,
+        "fl_shelter_seekers": 1169,
+        "ga_coastal_shelter_seekers": 1059,
+        "share_of_any_corridor_clean_capacity": 0.00841506904218887,
+        "share_of_i75_south_clean_capacity": 0.04139216326083149,
+        "share_of_state_clean_capacity": 0.0038951565234024692,
+        "total_shelter_seekers": 2228
+      }
+    },
+    "state_clean_capacity": 571869.0
+  },
+  "equity": {
+    "sets": {
+      "coastal_flood_tracts": {
+        "asian_nh": 0.02,
+        "black_nh": 0.305,
+        "carless_households": 15066.0,
+        "hispanic": 0.073,
+        "other": 0.046,
+        "pop": 660685.0,
+        "tracts": 182,
+        "white_nh": 0.556
+      },
+      "state": {
+        "asian_nh": 0.043,
+        "black_nh": 0.311,
+        "carless_households": 242123.0,
+        "hispanic": 0.101,
+        "other": 0.038,
+        "pop": 10722325.0,
+        "tracts": 2796,
+        "white_nh": 0.508
+      },
+      "top20_carless_on_flood_layer": {
+        "asian_nh": 0.017,
+        "black_nh": 0.451,
+        "carless_households": 4194.0,
+        "hispanic": 0.067,
+        "other": 0.05,
+        "pop": 80434.0,
+        "tracts": 20,
+        "white_nh": 0.415
+      },
+      "top20_carless_raw_count": {
+        "asian_nh": 0.021,
+        "black_nh": 0.503,
+        "carless_households": 5688.0,
+        "hispanic": 0.079,
+        "other": 0.039,
+        "pop": 79379.0,
+        "tracts": 20,
+        "white_nh": 0.358
+      }
+    },
+    "source": "ACS 2022 5-year B03002, Georgia tracts; audit only, never a model input",
+    "top20_overlap": 10
+  },
+  "getout": {
+    "car_hh_per_carless_hh": 15.017323775388292,
+    "car_households": 226251.0,
+    "carless_hh_in_tracts_wheelchair_yes_over_10km": 3311.0,
+    "carless_hh_on_flood_layer": 3776.399999999999,
+    "carless_households": 15066.0,
+    "coastal_county_wheelchair_yes_in_surge": 13,
+    "coastal_county_wheelchair_yes_shelters": 17,
+    "coastal_county_wheelchair_yes_surge_unrecorded": 1,
+    "coastal_pop": 648856.0,
+    "coastal_tracts": 182,
+    "median_km_any_shelter": 4.625,
+    "median_km_wheelchair_yes": 7.525,
+    "median_km_wheelchair_yes_not_in_surge": 40.290000000000006,
+    "tracts_ratio_under_2": 1,
+    "tracts_ratio_under_2_list": [
+      {
+        "car_hh": 335.0,
+        "carless": 391.0,
+        "geo_id": "13051001200",
+        "km_wheelchair_yes": 1.26,
+        "ratio": 0.86
+      }
+    ],
+    "tracts_wheelchair_yes_over_10km": 67,
+    "tracts_zero_carless": 29
+  },
+  "medical": {
+    "care_beds": 39494.0,
+    "care_beds_coastal_flood_tract": 2599.0,
+    "care_beds_exposed": 11295.0,
+    "care_beds_high_hurricane_tract": 11295.0,
+    "care_facilities": 356,
+    "care_facilities_coastal_flood_tract": 25,
+    "care_facilities_exposed": 110,
+    "care_facilities_high_hurricane_tract": 110,
+    "care_facilities_with_coords": 356,
+    "counties_with_medical_shelter_but_no_usable_seat": 0,
+    "counties_without_medical_shelter": 150,
+    "exposed_facilities_over_50km_from_medical": 77,
+    "high_hurricane_afreq_cut": 0.12653859427125275,
+    "median_coastal_tract_km_medical": 76.50354821870394,
+    "median_km_medical_all_facilities": 52.1,
+    "median_km_medical_exposed_facilities": 75.9,
+    "median_tract_km_medical": 45.696541340739174,
+    "medical_seats_clean": 4594.0,
+    "medical_seats_reported": 4594.0,
+    "medical_shelter_rows": [
+      {
+        "capacity": 375.0,
+        "county_fips": "13031",
+        "flag": "ok",
+        "generator": "yes",
+        "in_surge": null,
+        "name": "Langston Chapel Elementary School",
+        "usage": "BOTH"
+      },
+      {
+        "capacity": 362.0,
+        "county_fips": "13031",
+        "flag": "ok",
+        "generator": "yes",
+        "in_surge": null,
+        "name": "Langston Chapel Middle School",
+        "usage": "BOTH"
+      },
+      {
+        "capacity": 53.0,
+        "county_fips": "13043",
+        "flag": "ok",
+        "generator": "no",
+        "in_surge": null,
+        "name": "Cedar St Baptist Church",
+        "usage": "BOTH"
+      },
+      {
+        "capacity": 200.0,
+        "county_fips": "13043",
+        "flag": "ok",
+        "generator": "no",
+        "in_surge": null,
+        "name": "Guido Evangelistic Association",
+        "usage": "BOTH"
+      },
+      {
+        "capacity": 505.0,
+        "county_fips": "13043",
+        "flag": "ok",
+        "generator": "no",
+        "in_surge": null,
+        "name": "Metter Pre K-8 School",
+        "usage": "BOTH"
+      },
+      {
+        "capacity": 120.0,
+        "county_fips": "13043",
+        "flag": "ok",
+        "generator": "no",
+        "in_surge": null,
+        "name": "Metter United Methodist Church",
+        "usage": "BOTH"
+      },
+      {
+        "capacity": 450.0,
+        "county_fips": "13043",
+        "flag": "ok",
+        "generator": "yes",
+        "in_surge": null,
+        "name": "Metter High School",
+        "usage": "BOTH"
+      },
+      {
+        "capacity": 1398.0,
+        "county_fips": "13067",
+        "flag": "ok",
+        "generator": "unrecorded",
+        "in_surge": null,
+        "name": "Southern Polytechnic State University",
+        "usage": "EVAC"
+      },
+      {
+        "capacity": 504.0,
+        "county_fips": "13073",
+        "flag": "ok",
+        "generator": "unrecorded",
+        "in_surge": false,
+        "name": "Evans Middle School",
+        "usage": "BOTH"
+      },
+      {
+        "capacity": 200.0,
+        "county_fips": "13147",
+        "flag": "ok",
+        "generator": "no",
+        "in_surge": false,
+        "name": "Cornerstone Baptist Church",
+        "usage": "BOTH"
+      },
+      {
+        "capacity": 57.0,
+        "county_fips": "13171",
+        "flag": "ok",
+        "generator": "unrecorded",
+        "in_surge": null,
+        "name": "Gordon College Nursing & Allied Health Building",
+        "usage": "EVAC"
+      },
+      {
+        "capacity": 150.0,
+        "county_fips": "13175",
+        "flag": "ok",
+        "generator": "unrecorded",
+        "in_surge": null,
+        "name": "Dudley Baptist Church",
+        "usage": "EVAC"
+      },
+      {
+        "capacity": 200.0,
+        "county_fips": "13261",
+        "flag": "ok",
+        "generator": "unrecorded",
+        "in_surge": null,
+        "name": "Sumter County Fairgrounds",
+        "usage": "BOTH"
+      },
+      {
+        "capacity": 20.0,
+        "county_fips": "13303",
+        "flag": "ok",
+        "generator": "unrecorded",
+        "in_surge": null,
+        "name": "Ridge Road Elementary School",
+        "usage": "BOTH"
+      }
+    ],
+    "medical_shelters": 14,
+    "pop_65_plus_over_50km_from_medical": 700996.0,
+    "pop_over_50km_from_medical": 4538086.0,
+    "power_dependent_in_counties_without_medical_shelter": 84485.0,
+    "power_dependent_per_clean_medical_seat_statewide": 20.149542882020025,
+    "power_dependent_total": 92567.0
+  }
+}
