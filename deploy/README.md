@@ -34,6 +34,21 @@ See `agent/README.md`.
 
 Routes API: Cloud Run gets `ROUTES_API_KEY` from Secret Manager secret `routes-api-key`, a key restricted to `routes.googleapis.com`. Send it as `X-Goog-Api-Key`. Drive times are fetched live and never stored.
 
+Live shelter status: enable Places API (New), create an API key restricted to
+`places.googleapis.com`, and add it as a new version of Secret Manager secret
+`maps-places-api-key` before deploying:
+
+```
+gcloud secrets versions add maps-places-api-key \
+  --project qwiklabs-gcp-04-edc952746633 \
+  --data-file=/path/to/restricted-places-api-key
+```
+
+`deploy/setup_gcp.sh` enables Places API and grants the runtime service account
+access to this secret. `deploy/deploy.sh` injects it as `GOOGLE_MAPS_API_KEY`.
+The Maps lookup reports Google Maps listing status and opening hours only; it
+cannot confirm that a shelter is accepting evacuees or has capacity.
+
 Runtime settings (both `.env` and Cloud Run): `GOOGLE_GENAI_USE_VERTEXAI=TRUE`, `GOOGLE_CLOUD_LOCATION=global` (Gemini 3 models are served from `global`), `MODEL_NAME=gemini-3-flash-preview`, `EVAC_DATASET=evac_prod`.
 
 ## Data

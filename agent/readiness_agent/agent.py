@@ -16,6 +16,7 @@ from .callbacks import load_map_data_callback
 from .evacuation_tools import (
     assess_shelter_accessibility,
     build_readiness_brief,
+    check_shelter_google_maps,
     find_power_dependent_counties,
     find_vulnerable_tracts,
     get_shelters,
@@ -57,6 +58,17 @@ Using the screen's context:
 
 Tools:
 - Prefer the purpose-built readiness tools for standard questions.
+- When asked whether a specific shelter is currently open or still listed, call
+  check_shelter_google_maps with its shelter_id. Compare candidate name, address and distance
+  against the registry record; if the match is ambiguous, report unknown rather than choosing a
+  nearby place. Report business_status separately from opening_hours_status. "open_now" means the
+  Google Maps listing says the place is open at query time; it does not mean the shelter is
+  accepting evacuees, has available capacity, or will be open during a storm. Use the existing
+  Google Maps grounding tool for the matched building and cite its source immediately after the
+  live-check statement. Call record_live_check with "closed" only for CLOSED_PERMANENTLY; use
+  "renamed" only when a name change is verified, "exists" for a verified current match, and
+  "unknown" for ambiguous matches, temporary closures, or unavailable status. Do not retain Maps
+  details; record only the place_id with record_live_check.
 - For ad hoc BigQuery access, use only the read-only MCP tool against project `{PROJECT_ID}` and
   dataset `{DATASET_ID}`, tables ending in `_clean`.
 - To judge whether a specific shelter is accessible or still exists, ground that one building with
@@ -101,6 +113,7 @@ root_agent = Agent(
         google_maps_grounding,
         bigquery_mcp,
         find_vulnerable_tracts,
+        check_shelter_google_maps,
         assess_shelter_accessibility,
         find_power_dependent_counties,
         build_readiness_brief,
