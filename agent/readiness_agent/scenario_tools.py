@@ -13,6 +13,7 @@ SEED = 20261027
 CASES = ("low", "base", "high")
 AFFECTED_SHARE = 0.10
 DIALYSIS_DOWN_SHARE = 0.50
+CATEGORY_FLOOR_KT = {0: 34, 1: 64, 2: 83, 3: 96, 4: 113, 5: 137}
 RELOCATION_SHARE = {"low": 0.10, "base": 0.20, "high": 0.40}
 
 
@@ -87,6 +88,9 @@ def run_scenario(
     if len(lonlats) >= 2:
         tracks = [storms.drawn_track(lonlats, int(category if category is not None else 3))]
         source, used = "drawn_track", []
+        likelihood = storms.pattern_frequency(
+            track=tracks[0], min_intensity_kt=CATEGORY_FLOOR_KT[int(category or 0)]
+        )
         origin = storms.classify_origin(lonlats[0][1], lonlats[0][0])
     else:
         analogs = storms.analog_tracks(lat, lon, heading_deg or 0.0, month, intensity_kt)
@@ -96,6 +100,9 @@ def run_scenario(
             return {"status": "no_matching_past_storms", "lat": lat, "lon": lon, "month": month}
         tracks = [a.track for a in analogs]
         source = "matched_past_storms"
+        likelihood = storms.pattern_frequency(
+            lat=lat, lon=lon, heading_deg=heading_deg, month=month, min_intensity_kt=intensity_kt
+        )
         used = [f"{a.name} {a.season}" for a in analogs]
         origin = storms.classify_origin(lat, lon)
         match = {
@@ -177,6 +184,7 @@ def run_scenario(
             "month": month,
             "past_storms_used": used[:12],
             "match": match,
+            "likelihood": likelihood,
             "support": "outside_labeled_support" if any(result.outside_support)
             else "within_labeled_support",
             "range_label": RANGE_LABEL,
