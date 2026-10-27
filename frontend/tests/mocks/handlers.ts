@@ -31,7 +31,34 @@ export const chatEvents = [
     author: APP,
     content: {
       role: "model",
-      parts: [{ functionResponse: { name: "find_shelters", response: { shelters: [{ shelter_id: "M1" }, { shelter_id: "W1", county_fips: "13299" }] } } }],
+      // Same shape as the real get_shelters tool: shelter_record rows plus the source table.
+      parts: [
+        {
+          functionResponse: {
+            name: "get_shelters",
+            response: {
+              shelters: mapData.shelters.filter((s) => s.shelter_id === "M1" || s.shelter_id === "W1"),
+              source: "FEMA NSS registry · shelters_clean",
+            },
+          },
+        },
+      ],
+    },
+  },
+  {
+    author: APP,
+    content: {
+      role: "model",
+      parts: [
+        {
+          functionResponse: {
+            name: "record_live_check",
+            response: {
+              live_check: { shelter_id: "M1", status: "exists", place_id: "place-macon", checked_at: "2026-10-27T16:00:00Z" },
+            },
+          },
+        },
+      ],
     },
   },
   { author: APP, partial: true, content: { role: "model", parts: [{ text: ANSWER.slice(0, 60) }] } },

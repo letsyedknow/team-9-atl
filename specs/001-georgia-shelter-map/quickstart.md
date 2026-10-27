@@ -12,12 +12,18 @@
 ## 1. Run the agent service locally
 
 ```bash
+gcloud auth application-default login          # the agent's BigQuery, MCP and Gemini calls use ADC
 cd agent
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-export GOOGLE_CLOUD_PROJECT=<project> GOOGLE_CLOUD_LOCATION=global GOOGLE_GENAI_USE_VERTEXAI=True
+pip install -r requirements-dev.txt            # includes requirements.txt plus test tools
+export GOOGLE_CLOUD_PROJECT=<team project> GOOGLE_CLOUD_LOCATION=global GOOGLE_GENAI_USE_VERTEXAI=True
+export EVAC_DATASET=evac_prod                  # tables shelters_clean, vulnerability_tracts_clean, …
+export MODEL_NAME=gemini-3-flash-preview       # optional; the agent's default
 uvicorn server:app --port 8000
 ```
+
+Without credentials, run the frontend against the mocked agent instead:
+`cd frontend && VITE_MOCK_AGENT=1 npm run dev`.
 
 Smoke-test the map-data path. It needs no LLM and should return in a few seconds:
 
@@ -36,7 +42,17 @@ curl -s -X POST localhost:8000/run -H 'content-type: application/json' -d "{
 cd frontend
 npm ci
 npm run build:counties     # one-off: us-atlas → src/assets/ga-counties.topo.json (asserts 159)
-npm run dev                # Vite proxies /apps, /run and /run_sse to :8000
+npm run dev                # Vite proxies /apps, /run and /run_sse to :8000 (AGENT_URL overrides)
+```
+
+Capture a real chat turn for replay in tests (`frontend/tests/unit/chatFold.test.ts` picks up
+every file in `frontend/tests/mocks/recorded/`):
+
+```bash
+cd agent && .venv/bin/python scripts/capture_sse.py \
+  --question "How many shelters are in Cobb County and what is their capacity?" \
+  --context '{"county_fips":"13067","shelter_id":null,"scenario":null}' \
+  --out ../frontend/tests/mocks/recorded/us2-1.sse
 ```
 
 ## 3. Tests

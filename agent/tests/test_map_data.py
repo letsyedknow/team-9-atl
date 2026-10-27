@@ -115,7 +115,7 @@ def test_every_source_names_its_table(payload):
         for key in ("capacity_total", "capacity_total_incl_suspect", "households_no_vehicle",
                     "share_65_plus", "share_disability"):
             src = c[key]["source"]
-            assert "· shelters" in src or "· vulnerability_tracts" in src, src
+            assert "· shelters_clean" in src or "· vulnerability_tracts_clean" in src, src
 
 
 def test_notes_are_counted(payload):

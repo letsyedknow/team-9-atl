@@ -387,7 +387,232 @@ you" section is visible.
 
 ---
 
+# Connecting the frontend to the readiness agent (added 2026-10-27)
+
+**Context**: PRs #3–#6 merged the team's readiness agent into `agent/readiness_agent/`. It has:
+- tools: `find_vulnerable_tracts`, `assess_shelter_accessibility`, `find_power_dependent_counties`, `build_readiness_brief`, the BigQuery MCP (`execute_sql_readonly`) and `google_maps_grounding`
+- data in `<project>.evac_prod.*_clean` (see `agent/readiness_agent/evacuation_tools.py`)
+
+The transport is already wired:
+- the same-origin server is `agent/server.py`
+- the Vite proxy sends the agent's `origin` header (`frontend/vite.config.ts`)
+
+What remains is making the agent's output match what the frontend reads ([contracts/agent-interface.md](contracts/agent-interface.md) §3).
+
+**Gaps found** (each is fixed by a task below):
+1. Tool results carry no `shelter_id`, and the county tool uses `fips_code`, so answers cannot highlight the map (dependency D2).
+2. Tools filter by county name only, but the frontend's `CONTEXT v1` sends `county_fips`. No tool can look up the `shelter_id`s in `receiving_top` or `shelter_id`.
+3. Tool flags are raw booleans, so `NULL` reaches the model unlabeled. `assess_shelter_accessibility` sorts by raw capacity, so the Commerce rows (270,135 and 225,112) rank first (Constitution I, VI).
+4. ADK's `/run_sse` reports a mid-stream failure as `data: {"error": "...", "error_details": {...}}` (verified in `google/adk/cli/api_server.py`, ADK 2.13). `streamChat` only checks `errorCode` and `errorMessage`, so a failed turn shows as done.
+5. Source labels still name `shelters` and `vulnerability_tracts`, but the tables are now `*_clean` (Constitution III).
+6. There is no way for the agent to report a live-check result (renamed or closed), so analysis finding H2 is unbuilt.
+
+**Credentials**: T061, T062, T069 and T072 need Application Default Credentials for the team's GCP project (`gcloud auth application-default login`). Everything else runs offline against fakes.
+
+## Phase 8: Integration Foundation (Blocking Prerequisites)
+
+**Purpose**: Shared fixes that every story's real-agent path depends on.
+
+- [X] T056 Handle ADK's SSE error event in `frontend/src/lib/agentClient.ts`:
+  - add `error?: string` and `error_details?: { error_type?: string; error_message?: string }` to `AgentEvent`
+  - in `streamChat`, throw `new Error(e.error)` when `e.error` is present, before any `errorCode`/`errorMessage` check
+  - add `frontend/tests/unit/agentClient.test.ts`:
+    - `parseSseChunk` parses `data: {"error":"ValueError: boom","error_details":{}}`
+    - `streamChat` rejects with `"ValueError: boom"` when `fetch` is stubbed (`vi.stubGlobal`) to return a `ReadableStream` with one text event and then that error event
+- [X] T057 [P] In `agent/readiness_agent/map_data.py`, rename `_shelter(row)` to the public `shelter_record(row)` and keep `_shelter = shelter_record` for compatibility. It stays the single place a shelter row becomes `{shelter_id, name, address, county_fips, county_name, lat, lon, evacuation_capacity, post_impact_capacity, usage, the four flags via to_flag, quality_flags}`. Also export the constants `SUSPECT_LOW` and `SUSPECT_HIGH`.
+- [X] T058 [P] Update source labels in `agent/readiness_agent/map_data.py` to the real tables:
+  - `SRC_SHELTERS = "FEMA NSS registry · shelters_clean"`
+  - `SRC_ACS = "ACS 5-yr · vulnerability_tracts_clean"`
+  - `SRC_SVI = "ACS survey estimate via CDC SVI · vulnerability_tracts_clean"`
+  - in `agent/tests/test_map_data.py::test_every_source_names_its_table`, assert `"· shelters_clean"` or `"· vulnerability_tracts_clean"`
+- [X] T059 Move the frontend fixture generator into `agent/scripts/make_frontend_fixture.py`:
+  - copy the generator used in Phase 2 T020: 12 shelters (J1–J3, G1–G2, C1–C2, B1, M1, W1, Y1, X1), 8 counties, and tracts including a `-999` row
+  - it calls `build_payload`, validates against `specs/001-georgia-shelter-map/contracts/map-data.schema.json`, and writes `frontend/tests/mocks/mapData.fixture.json`
+  - run it so the fixture picks up the T058 labels, then run `cd frontend && npx vitest run` and update any assertion that hard-codes `· vulnerability_tracts`
+- [X] T060 [P] Write `agent/scripts/capture_sse.py` (stdlib `urllib` only):
+  - args: `--base http://localhost:8000 --question "..." --context '{"county_fips":...}' --out frontend/tests/mocks/recorded/<name>.sse`
+  - creates a session at `/apps/readiness_agent/users/capture/sessions`, then POSTs `/run_sse` with the two-part message from contracts §3 (question, then `CONTEXT v1 <json>`) and writes the raw response body to `--out`
+  - add a header comment saying captured files must not contain personal data and that Maps content inside them is test-only, never shipped (FR-022)
+
+**Checkpoint**: `cd agent && .venv/bin/python -m pytest` and `cd frontend && npx vitest run` both pass.
+
+---
+
+## Phase 9: User Story 1 - Map loads from the real agent (Priority: P1)
+
+**Goal**: The session-start `LOAD_MAP_DATA v1` call returns real Georgia data from `evac_prod`.
+
+**Independent Test**:
+1. With ADC set, run `cd agent && GOOGLE_CLOUD_PROJECT=<team project> EVAC_DATASET=evac_prod .venv/bin/uvicorn server:app --port 8000`.
+2. In another shell, run `cd frontend && npm run dev`, then open http://localhost:5173.
+3. Outlines render at once. Markers and summaries appear within 20 s (SC-004a).
+
+- [ ] T061 [US1] **Schema check first (gates T063, T066):** run `bq show --schema --format=prettyjson <project>:evac_prod.shelters_clean` and the same for `vulnerability_tracts_clean`, and record both column lists in research.md under "## Agent integration (evac_prod)". Every name in `SHELTER_COLUMNS` and the tract columns must exist; fix any mismatch with an alias in `agent/readiness_agent/map_data.py`. Then run the quickstart §1 `curl` smoke test against the local server. The expected shelter count comes from `bq query --use_legacy_sql=false 'SELECT COUNT(*) FROM \`<project>.evac_prod.shelters_clean\` WHERE state="GA" AND latitude IS NOT NULL AND longitude IS NOT NULL'`.
+  - Confirm `schema == "map-data/v1"`, 159 counties, and a `shelters` length equal to that count.
+  - If BigQuery reports a missing column (`county_fips`, `county_name`, `county_parish`, `usage`, `population_code`, `is_medical` in `shelters_clean`; `total_pop`, `pop_65_plus`, `pct_disability`, `households_no_vehicle` in `vulnerability_tracts_clean`), alias the real column in `SHELTERS_SQL` / `TRACTS_SQL` in `agent/readiness_agent/map_data.py`.
+  - Record the column mapping and the load time under "## Agent integration (evac_prod)" in `specs/001-georgia-shelter-map/research.md`.
+- [ ] T062 [US1] Write `agent/scripts/check_county_totals.py` (SC-002, analysis M1):
+  - call `get_georgia_map_data(project, "evac_prod")`
+  - run `SELECT county_fips, COUNT(*) n, SUM(IF(evacuation_capacity BETWEEN 0 AND 100000, evacuation_capacity, 0)) cap, COUNTIF(wheelchair_accessible IS NULL) wc_unrec FROM \`<project>.evac_prod.shelters_clean\` WHERE state='GA' GROUP BY 1`
+  - print every county whose `shelter_count`, `capacity_total.value` or `wheelchair.unrecorded` differs, and exit non-zero if any do
+  - run it and record the result in research.md
+
+**Checkpoint**: The map shows real Georgia shelters through the agent.
+
+---
+
+## Phase 10: User Story 2 - Chat with the real agent (Priority: P1)
+
+**Goal**: Agent answers use the screen's context, return `shelter_id`/`county_fips` so the map highlights, keep Yes / No / Not recorded, and carry grounding metadata the UI renders.
+
+**Independent Test**: With the local server and `npm run dev`, select Cobb County and ask the three US2 questions from spec.md. Check that:
+- the counts state "not recorded"
+- referenced shelters highlight
+- grounded sentences show Google Maps sources directly beneath
+
+- [ ] T063 [US2] Rework `assess_shelter_accessibility` in `agent/readiness_agent/evacuation_tools.py`: *(Code and offline tests done 2026-10-27; awaiting T061 schema check.)*
+  - add the parameter `county_fips: str | None = None` (filter `county_fips = @county_fips`), and default `state` to `"GA"`
+  - select the shelter columns from one shared constant rather than an inline list. In `agent/readiness_agent/map_data.py`, define `SHELTER_COLUMNS = ("shelter_id", "shelter_name", "address_1", "city", "zip", "county_fips", "county_name", "county_parish", "latitude", "longitude", "evacuation_capacity", "post_impact_capacity", "usage", "wheelchair_accessible", "generator_onsite", "is_medical", "population_code", "in_surge_slosh_area")`. Build `SHELTERS_SQL` from it, import it here, and drop the `geo` GEOGRAPHY column. One list then serves the map load and both shelter tools, and T061 verifies it against the real table.
+  - `shelter_record` already reads every column except `shelter_id`, `latitude` and `longitude` with `.get`. Keep it that way, so a column aliased to `NULL` degrades to "Not recorded" rather than raising.
+  - order by `wheelchair_accessible IS NULL DESC, IF(evacuation_capacity < 0 OR evacuation_capacity > 100000, 0, evacuation_capacity) DESC, shelter_name`, so suspect capacities never rank first (Constitution VI)
+  - return `{"shelters": [shelter_record(r) for r in rows], "wheelchair": {yes, no, unrecorded}, "source": SOURCES["shelters"]}`, counting via `to_flag`
+  - define a `SOURCES` dict at the top of the module, one entry per table, each naming the dataset **and** the table (Constitution III):
+    - `"shelters": "FEMA NSS registry · shelters_clean"`
+    - `"tracts": "ACS 5-yr and CDC SVI · vulnerability_tracts_clean"`
+    - `"power": "HHS emPOWER · power_dependent_counties_clean"`
+    Every tool result carries the matching `source`.
+  - update the docstring to say flags are YES / NO / UNRECORDED and UNRECORDED means nobody assessed it
+- [X] T064 [P] [US2] Rework `find_power_dependent_counties` in `agent/readiness_agent/evacuation_tools.py`:
+  - select `fips_code AS county_fips`
+  - add the parameter `county_fips: str | None = None` (filter `fips_code = @county_fips`)
+  - return `{"counties": rows, "source": SOURCES["power"]}` instead of a bare list
+  - state in the docstring that emPOWER is county-level and must never be attributed to a tract or block (Constitution III)
+- [X] T065 [P] [US2] Rework `find_vulnerable_tracts` in `agent/readiness_agent/evacuation_tools.py`:
+  - add the parameter `county_fips: str | None = None` (filter `v.county_fips = @county_fips`)
+  - drop the `geo` column
+  - note in the docstring that `pct_disability` is an ACS survey estimate via CDC SVI and that `-999` means missing
+  - map `-999` to `None` in Python before returning
+  - return `{"tracts": rows, "source": SOURCES["tracts"]}` instead of a bare list
+- [ ] T066 [US2] Add the tool `get_shelters(shelter_ids: list[str]) -> dict` to `agent/readiness_agent/evacuation_tools.py`: *(Code and offline tests done 2026-10-27; awaiting T061 schema check.)*
+  - raise `ValueError` if more than 25 IDs are passed
+  - query with `bigquery.ArrayQueryParameter("ids", "STRING", shelter_ids)` and `WHERE shelter_id IN UNNEST(@ids)`, selecting `SHELTER_COLUMNS` (the same shared list as T063)
+  - return `{"shelters": [shelter_record(r) ...], "source": SOURCES["shelters"]}` in the order of `shelter_ids`
+  - register it in `tools=[...]` in `agent/readiness_agent/agent.py`
+- [X] T067 [US2] Extend `INSTRUCTION` in `agent/readiness_agent/agent.py` with these rules:
+  - when `CONTEXT v1` has `county_fips`, pass it as `county_fips` to the readiness tools rather than guessing a county name
+  - when it has `shelter_id`, call `get_shelters([shelter_id])`
+  - to judge whether a specific shelter is accessible or still exists, ground that one building with Google Maps using its name and address, never as an area question
+  - report counts as "N yes · N no · N not recorded"
+  - name the source table for every figure you give, using the tool result's `source` field (e.g. "1,950 spaces (FEMA NSS registry · shelters_clean)"), and say whether it is a registry record, a survey estimate, simulated or a live check (Constitution III)
+  - never include a shelter flagged `suspect_capacity` in a capacity total without saying so
+- [X] T068 [P] [US2] Write `agent/tests/test_evacuation_tools.py`. Monkeypatch `evacuation_tools._run_query` to capture `(sql, params)` and return fake rows (no BigQuery). Assert:
+  - `assess_shelter_accessibility(county_fips="13157")` passes a `county_fips` parameter and returns `shelter_id` and `county_fips` on every shelter
+  - a `None` wheelchair value becomes `"UNRECORDED"` and the counts include it
+  - a 270,135 capacity carries `suspect_capacity`
+  - `find_power_dependent_counties` rows have a `county_fips` key
+  - `get_shelters` rejects 26 IDs and preserves input order
+  - `find_vulnerable_tracts` maps `-999` to `None`
+  - every tool result has a `source` containing its table name (`shelters_clean`, `vulnerability_tracts_clean` or `power_dependent_counties_clean`)
+- [ ] T069 [US2] Run real-agent chat verification, with ADC set:
+  - with the local server and `npm run dev`, ask the three US2 questions for Cobb (13067) and Chatham (13051)
+  - capture each with `agent/scripts/capture_sse.py` into `frontend/tests/mocks/recorded/us2-<n>.sse`
+  - confirm: (a) answer text appears once, not duplicated by partial and final events; (b) `functionResponse` payloads contain `shelter_id`; (c) at least one final event has `groundingMetadata.groundingChunks[].maps`
+  - if (a) fails, fix the text-folding rule in `frontend/src/components/chat/ChatPanel.tsx`
+  - record the observed event sequence in research.md R8
+- [X] T070 [P] [US2] Extract the per-event logic from `ChatPanel.run` into a pure `foldEvent(acc, event)` in `frontend/src/lib/chatFold.ts`. It accumulates text (partial adds a delta, a non-partial event replaces the text), references via `collectReferences`, and the latest `groundingMetadata`. `ChatPanel` must use it. Add `frontend/tests/unit/chatFold.test.ts`, which replays `tests/mocks/handlers.ts` `chatEvents` plus every `tests/mocks/recorded/*.sse` file (if present, via `parseSseChunk`) and asserts the final text is not duplicated and references are collected.
+
+**Checkpoint**: US2's independent test passes against the real agent.
+
+---
+
+## Phase 11: User Story 3 - The scenario reaches the agent (Priority: P2)
+
+**Goal**: Questions about a drawn hurricane use the screen's affected set and receiving list, not a re-ranking.
+
+**Independent Test**: Draw a Category 3 track across Glynn, then ask "Which of these receiving shelters can actually take a wheelchair?". The answer should:
+- call `get_shelters` with the screen's `receiving_top`
+- ground shelters one building at a time
+- separate recorded yes, recorded no and not assessed
+
+- [X] T071 [US3] Add scenario rules to `INSTRUCTION` in `agent/readiness_agent/agent.py`:
+  - `CONTEXT v1.scenario` holds `affected_county_fips`, `affected_shelter_ids` and `receiving_top`, already ranked by the screen's documented rule (within the reach cutoff, capacity first)
+  - for questions about receiving or affected shelters, call `get_shelters` with those IDs (at most 25) and keep the screen's order. Don't re-rank.
+  - say that the scenario is illustrative and that distances are straight-line
+- [ ] T072 [US3] Verify end to end with ADC: draw the Glynn Category 3 track in `npm run dev`, ask the receiving-shelter wheelchair question, and capture it to `frontend/tests/mocks/recorded/us3-receiving.sse` with `agent/scripts/capture_sse.py`. Confirm the answer's referenced shelters are a subset of `receiving_top`, and record the result in research.md.
+
+**Checkpoint**: Scenario questions are answered from the screen's own lists.
+
+---
+
+## Phase 12: User Story 4 - Readiness brief and live-check discrepancies (Priority: P3)
+
+**Goal**: The brief is counted and FIPS-aware. A shelter Google Maps reports as renamed or closed is marked on the map (analysis H2).
+
+**Independent Test**:
+- Ask "What should I verify before September in Chatham County?" and get a ranked list with reasons and a counted "What we could not tell you".
+- After the agent grounds a shelter Maps reports as renamed, a discrepancy marker appears on that shelter.
+
+- [X] T073 [US4] Add the tool `record_live_check(shelter_id: str, status: str, place_id: str | None = None) -> dict` to `agent/readiness_agent/evacuation_tools.py`:
+  - `status` must be one of `exists`, `renamed`, `closed`, `unknown`; raise `ValueError` otherwise
+  - return `{"live_check": {"shelter_id", "status", "place_id", "checked_at": UTC ISO}}`
+  - store nothing (FR-022)
+  - register it in `agent/readiness_agent/agent.py`, and add to `INSTRUCTION`: after grounding a specific shelter, call `record_live_check` with what Maps showed, and say so in the answer
+- [X] T074 [US4] Rework `build_readiness_brief` in `agent/readiness_agent/evacuation_tools.py`:
+  - accept `county_fips: str | None = None` alongside `county`, passing it to the three tools
+  - adapt to the new dict results from T063–T065: `vulnerable_tracts` takes `["tracts"]`, `shelters_to_verify` takes `["shelters"]`, `medical_dependency` takes `["counties"]`. Add `"sources"`, mapping each section to its `source` string
+  - add `"could_not_tell"` with:
+    - `wheelchair_unrecorded`: count among `shelters_to_verify`
+    - `generator_unrecorded`: count among `shelters_to_verify`
+    - `notes`: "Distances are straight-line", "emPOWER is county-level", "Shelter open status during a storm is not known"
+  - instruct the agent (in `INSTRUCTION`) to end every brief with a counted "What we could not tell you" section
+- [X] T075 [US4] Document `live_check` in `specs/001-georgia-shelter-map/contracts/agent-interface.md` §3. A `functionResponse.response.live_check` holds `{shelter_id, status, place_id, checked_at}`, and the frontend keeps only `status`, `place_id` and the time. In `specs/001-georgia-shelter-map/data-model.md`, change LiveCheck to say it is populated from `record_live_check` tool results.
+- [X] T076 [US4] Add `collectLiveChecks(obj): { shelter_id: string; status: "exists" | "renamed" | "closed" | "unknown"; place_id?: string }[]` to `frontend/src/lib/grounding.ts`, walking `functionResponse` payloads for `live_check` objects. Then wire it up:
+  - in `frontend/src/state/store.tsx`, extend `liveChecks` entries to `{ status, placeIds, checked_at }` and change the `liveCheck` action to carry `status`
+  - in `frontend/src/components/chat/ChatPanel.tsx` (or `chatFold.ts` from T070), dispatch `liveCheck` for each one
+- [X] T077 [US4] Show discrepancies:
+  - `frontend/src/components/map/ShelterLayer.tsx`: draw a `?` glyph (class `shelter-discrepancy`) beside shelters whose live check is `renamed` or `closed`. The shelter stays on the map, because the registry record is not edited (FR-008).
+  - `frontend/src/components/summary/ShelterDetails.tsx`: add the line "Live check: renamed / closed per <span translate="no">Google Maps</span> at HH:MM — registry record shown unedited"
+  - add a legend entry in `frontend/src/components/map/Legend.tsx` and the style in `frontend/src/styles/app.css`
+- [X] T078 [P] [US4] Write the tests:
+  - `frontend/tests/unit/grounding.test.ts`: `collectLiveChecks` finds nested `live_check` objects and ignores invalid statuses
+  - `frontend/tests/component/ShelterDetails.test.tsx`: renders the discrepancy line for a `renamed` live check, using `StoreProvider` with an `initial` state
+  - `agent/tests/test_evacuation_tools.py`: `record_live_check` rejects `"gone"`, and `build_readiness_brief` returns `could_not_tell` counts
+
+**Checkpoint**: All four stories work against the real agent.
+
+---
+
+## Phase 13: Polish (integration)
+
+- [X] T079 [P] Make the mock agent in `frontend/tests/mocks/handlers.ts` mirror the real one:
+  - the `functionResponse` uses `name: "get_shelters"` with `{shelters: [shelter_record-shaped M1, W1]}`
+  - add a second `functionResponse` for `record_live_check` (`M1`, `exists`)
+  - keep the existing grounded answer
+  - re-run `npx playwright test`
+- [X] T080 [P] Update the docs for the real dataset and dev loop:
+  - `specs/001-georgia-shelter-map/quickstart.md` §1–2: the env vars `GOOGLE_CLOUD_PROJECT`, `EVAC_DATASET=evac_prod`, `MODEL_NAME`; ADC login; `.venv/bin/uvicorn server:app --port 8000` together with `npm run dev`
+  - `plan.md` Technical Context Storage: `evac_prod.*_clean`
+  - `contracts/agent-interface.md`: list the tool names whose results the frontend reads
+- [X] T081 Run the full verification and fix any failures:
+  - `cd agent && .venv/bin/python -m pytest`
+  - `cd frontend && npx tsc -b && npx eslint . && npx vitest run && npm run build && npx playwright test`
+  - then do T053 (grounding check), which these phases unblock
+
+---
+
 ## Dependencies & Execution Order
+
+### Integration phases (8–13)
+
+- **Phase 8** blocks all integration phases. T056, T057, T058 and T060 can run in parallel. T059 runs after T058.
+- **Phase 9 (US1)** needs only Phase 8 and ADC. It can run alongside Phase 10.
+- **Phase 10 (US2)**: T063 and T066 can be written and unit-tested offline. They stay unchecked until T061's schema check confirms `SHELTER_COLUMNS` against `evac_prod.shelters_clean`; offline fakes cannot catch a missing column. T063–T066 run before T067. T068 runs alongside T063–T066. T069 needs T060, T063–T067 and ADC. T070 can start before T069 using mock events.
+- **Phase 11 (US3)** needs T066 and T067.
+- **Phase 12 (US4)**: T073 runs before T076 and T077. T075 is documentation and can run anytime.
+- **Phase 13** runs last. T081 gates any commit.
+- **Parallel example**:
+  - agent lane: `T063 → T066 → T067`, with `T064`, `T065`, `T068` alongside
+  - frontend lane: `T056`, then `T070`, then `T076 → T077`, with `T078` alongside
 
 ### Phase Dependencies
 

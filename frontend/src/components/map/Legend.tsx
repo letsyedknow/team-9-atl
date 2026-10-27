@@ -24,6 +24,12 @@ export default function Legend() {
         </svg>
         Data problem (suspect capacity / location)
       </span>
+      <span className="legend__item">
+        <svg width="12" height="12" aria-hidden="true">
+          <text x="2" y="10" className="shelter-discrepancy">?</text>
+        </svg>
+        Renamed or closed per live check
+      </span>
       <span className="legend__item">{dot("shelter--unknown shelter--affected")} Inside simulated band</span>
       <span className="legend__item">{dot("shelter--unknown shelter--receiving")} Receiving shelter</span>
       <span className="legend__item">

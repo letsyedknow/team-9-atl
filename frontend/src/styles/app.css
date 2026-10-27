@@ -211,6 +211,12 @@ button {
   font-weight: 700;
   pointer-events: none;
 }
+.shelter-discrepancy {
+  fill: var(--live);
+  font-size: 10px;
+  font-weight: 700;
+  pointer-events: none;
+}
 .band {
   fill: var(--band);
   stroke: var(--track);

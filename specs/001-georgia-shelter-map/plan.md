@@ -31,7 +31,7 @@ managed in IAM, with no redeploy.
 - Frontend: React 18.3, Vite 5, d3-geo and topojson-client (map rendering), @turf/turf
   (simulation geometry), us-atlas (county boundaries)
 - Agent service: google-adk (FastAPI app via `get_fast_api_app`), google-cloud-bigquery
-**Storage**: BigQuery `<project>.evacuation_readiness` (read-only). A static Georgia county-boundary
+**Storage**: BigQuery `<project>.evac_prod.*_clean` (`shelters_clean`, `vulnerability_tracts_clean`, `power_dependent_counties_clean`; read-only; dataset set by `EVAC_DATASET`). A static Georgia county-boundary
 asset is bundled in the frontend. Nothing is persisted by this feature; sessions are in-memory.
 **Testing**:
 - Frontend: Vitest with React Testing Library and jsdom, plus one Playwright smoke test against a

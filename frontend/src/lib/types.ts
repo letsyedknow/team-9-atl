@@ -93,6 +93,15 @@ export interface HurricaneScenario {
   receiving: ReceivingEntry[];
 }
 
+export type LiveCheckStatus = "exists" | "renamed" | "closed" | "unknown";
+
+/** What the agent reported after grounding one shelter (record_live_check tool, contracts §3). */
+export interface LiveCheckReport {
+  shelter_id: string;
+  status: LiveCheckStatus;
+  place_id?: string;
+}
+
 export interface GroundingSource {
   title: string;
   uri: string;

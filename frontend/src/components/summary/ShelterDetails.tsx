@@ -50,9 +50,20 @@ export default function ShelterDetails() {
         <div className="note">Coordinates disagree with the recorded state/county; shown under its recorded county.</div>
       )}
       {live && (
-        <div className="small">
-          <span className="kind kind--live">Live check</span> Checked against{" "}
-          <span translate="no">Google Maps</span> at {new Date(live.checked_at).toLocaleTimeString()}
+        <div className={live.status === "renamed" || live.status === "closed" ? "note" : "small"} data-testid="live-check">
+          <span className="kind kind--live">Live check</span>{" "}
+          {live.status === "renamed" || live.status === "closed" ? (
+            <>
+              Live check: {live.status} per <span translate="no">Google Maps</span> at{" "}
+              {new Date(live.checked_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} — registry
+              record shown unedited
+            </>
+          ) : (
+            <>
+              {live.status === "exists" ? "Still there" : "Not confirmed"} per <span translate="no">Google Maps</span>{" "}
+              at {new Date(live.checked_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </>
+          )}
         </div>
       )}
       <div className="small muted">

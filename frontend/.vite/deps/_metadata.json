@@ -1,0 +1,91 @@
+{
+  "hash": "0d7fa755",
+  "configHash": "c9d6b42f",
+  "lockfileHash": "3dba3b6b",
+  "browserHash": "7e2d3f75",
+  "optimized": {
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "06030dd0",
+      "needsInterop": true
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "3df541cc",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "ec3adc11",
+      "needsInterop": true
+    },
+    "msw/browser": {
+      "src": "../../node_modules/msw/lib/browser/index.mjs",
+      "file": "msw_browser.js",
+      "fileHash": "a120490f",
+      "needsInterop": false
+    },
+    "d3-geo": {
+      "src": "../../node_modules/d3-geo/src/index.js",
+      "file": "d3-geo.js",
+      "fileHash": "3bc5b77d",
+      "needsInterop": false
+    },
+    "topojson-client": {
+      "src": "../../node_modules/topojson-client/src/index.js",
+      "file": "topojson-client.js",
+      "fileHash": "fee4eaa2",
+      "needsInterop": false
+    },
+    "@turf/turf": {
+      "src": "../../node_modules/@turf/turf/dist/esm/index.js",
+      "file": "@turf_turf.js",
+      "fileHash": "4c59d684",
+      "needsInterop": false
+    },
+    "react-markdown": {
+      "src": "../../node_modules/react-markdown/index.js",
+      "file": "react-markdown.js",
+      "fileHash": "1c70fd51",
+      "needsInterop": false
+    },
+    "remark-gfm": {
+      "src": "../../node_modules/remark-gfm/index.js",
+      "file": "remark-gfm.js",
+      "fileHash": "c3ac9442",
+      "needsInterop": false
+    },
+    "msw": {
+      "src": "../../node_modules/msw/lib/core/index.mjs",
+      "file": "msw.js",
+      "fileHash": "b6fa052c",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "graphql-PJXR4WLA": {
+      "file": "graphql-PJXR4WLA.js"
+    },
+    "chunk-MNECAJFN": {
+      "file": "chunk-MNECAJFN.js"
+    },
+    "chunk-PTXDTE43": {
+      "file": "chunk-PTXDTE43.js"
+    },
+    "chunk-NREPNPXF": {
+      "file": "chunk-NREPNPXF.js"
+    },
+    "chunk-LY2USKLN": {
+      "file": "chunk-LY2USKLN.js"
+    },
+    "chunk-ON4RXEUN": {
+      "file": "chunk-ON4RXEUN.js"
+    },
+    "chunk-MJOZMRNF": {
+      "file": "chunk-MJOZMRNF.js"
+    }
+  }
+}
